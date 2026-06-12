@@ -1714,5 +1714,53 @@
     }
 </script>
 
+<button id="btnTelaCheia" onclick="alternarTelaCheia()" style="position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 10px 15px; background: #0275d8; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
+    🖥️ Modo Tela Cheia
+</button>
+
+<script>
+function alternarTelaCheia() {
+    let botao = document.getElementById("btnTelaCheia");
+    
+    // Se NÃO estiver em tela cheia, entra nela
+    if (!document.fullscreenElement && !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+        let elemento = document.documentElement;
+        if (elemento.requestFullscreen) elemento.requestFullscreen();
+        else if (elemento.mozRequestFullScreen) elemento.mozRequestFullScreen();
+        else if (elemento.webkitRequestFullscreen) elemento.webkitRequestFullscreen();
+        else if (elemento.msRequestFullscreen) elemento.msRequestFullscreen();
+        
+        // Muda o texto do botão para a opção de sair
+        botao.innerHTML = "❌ Sair da Tela Cheia";
+        botao.style.background = "#d9534f"; // Muda a cor para vermelho para destacar
+    } 
+    // Se JÁ ESTIVER em tela cheia, sai dela
+    else {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        else if (document.msExitFullscreen) document.msExitFullscreen();
+        
+        // Volta o botão ao estado original
+        botao.innerHTML = "🖥️ Modo Tela Cheia";
+        botao.style.background = "#0275d8"; // Volta para o azul original
+    }
+}
+
+// Esse trecho garante que se o usuário apertar ESC no teclado, o botão também volta ao normal sozinho!
+function monitorarEsc() {
+    let botao = document.getElementById("btnTelaCheia");
+    if (!document.fullscreenElement && !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+        botao.innerHTML = "🖥️ Modo Tela Cheia";
+        botao.style.background = "#0275d8";
+    }
+}
+document.addEventListener('fullscreenchange', monitorarEsc);
+document.addEventListener('webkitfullscreenchange', monitorarEsc);
+document.addEventListener('mozfullscreenchange', monitorarEsc);
+document.addEventListener('MSFullscreenChange', monitorarEsc);
+</script>
+
+
 </body>
 </html>
