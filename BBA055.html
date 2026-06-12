@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Controle Bba.055</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>.gauge-bar { transition: height 0.3s ease; }</style>
+</head>
+<body class="bg-gray-100 p-4 md:p-8">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">Simulador Bba.055 - 324FC051</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="space-y-4">
+                <div class="p-4 border rounded bg-gray-50">
+                    <label class="block font-bold">Modo de Operação:</label>
+                    <select id="mode" class="w-full p-2 mt-1 border rounded font-mono">
+                        <option value="LM">Local / Manual (L/M)</option>
+                        <option value="LA">Local / Automático (L/A)</option>
+                        <option value="RM">Remoto / Manual (R/M)</option>
+                        <option value="RA">Remoto / Automático (R/A)</option>
+                    </select>
+                </div>
+
+                <div class="p-4 border rounded bg-gray-50">
+                    <label class="block font-bold">Inversor Bba.055 (CV %):</label>
+                    <input type="range" id="cvSlider" min="0" max="100" value="0" class="w-full">
+                    <span id="cvValue" class="text-lg font-mono">0</span>%
+                </div>
+
+                <div class="p-4 border rounded bg-gray-50">
+                    <label class="block font-bold">Setpoint (SP) L/min:</label>
+                    <input type="number" id="spInput" value="3900" max="5200" class="w-full p-2 mt-1 border rounded font-mono disabled:bg-gray-200 disabled:text-gray-500">
+                    <p class="text-[10px] text-gray-500 italic mt-1">Máx: 5200 L/min. Confirme com "Enter".</p>
+                </div>
+
+                <div class="p-4 border rounded bg-gray-50">
+                    <button id="btnBba055" class="w-full py-2 px-4 rounded bg-red-600 text-white font-bold hover:bg-green-600 transition">
+                        Estado Bba.055: DESLIGADA
+                    </button>
+                    <p id="errorMessage" class="text-red-600 text-sm mt-2 font-bold hidden text-center italic">ALERTA: ERRO DE OPERAÇÃO / INTERTRAVAMENTO</p>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-center p-6 border rounded bg-gray-900 text-white gap-6">
+                <div class="flex items-end h-64 gap-8">
+                    <div class="flex flex-col items-center">
+                        <div class="w-20 bg-gray-700 h-56 relative flex flex-col-reverse"><div id="pvBar" class="bg-blue-500 w-full gauge-bar"></div></div>
+                        <span class="text-sm mt-2 font-bold">PV</span>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <div class="w-20 bg-gray-700 h-56 relative flex flex-col-reverse"><div id="spBar" class="bg-purple-500 w-full gauge-bar"></div></div>
+                        <span class="text-sm mt-2 font-bold">SP</span>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col gap-6">
+                    <div class="bg-gray-800 p-4 rounded text-center w-32">
+                        <p class="text-xs text-gray-400">PV (Fluxo)</p>
+                        <p id="pvText" class="text-2xl font-bold font-mono text-blue-400">0</p>
+                    </div>
+                    <div class="bg-gray-800 p-4 rounded text-center w-32">
+                        <p class="text-xs text-gray-400">SP (Setpoint)</p>
+                        <p id="spText" class="text-2xl font-bold font-mono text-purple-400">3900</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let state = { mode: 'LM', cv: 0, pv: 0, sp: 3900, ligada: false, atingiuLimite: false };
+        let pvReal = 0; 
+
+        const setModoManual = () => {
+            state.mode = 'LM';
+            document.getElementById('mode').value = 'LM';
+        };
+
+        const update = () => {
+            const factor = 3700 / 45; 
+            let targetPv = state.ligada ? (state.cv * factor) : 0;
+            
+            pvReal += (targetPv - pvReal) * 0.005; 
+            
+            let flutuacao = 0;
+            if (state.ligada && (state.mode === 'LA' || state.mode === 'RA')) {
+                flutuacao = (Math.random() - 0.5) * 10;
+            }
+            state.pv = pvReal + flutuacao;
+            
+            if (state.pv > 2100) state.atingiuLimite = true;
+            if (state.atingiuLimite && state.pv <= 2100 && state.ligada) {
+                state.ligada = false;
+                state.cv = 0;
+                setModoManual();
+                updateButtonUI();
+                showError("ALERTA: INTERTRAVAMENTO ATIVO");
+            }
+            
+            if (state.ligada && (state.mode === 'LA' || state.mode === 'RA')) {
+                if (Math.abs(state.sp - state.pv) > 150) {
+                    state.ligada = false;
+                    state.cv = 0;
+                    setModoManual();
+                    updateButtonUI();
+                    showError("ALERTA: ERRO - DIFERENÇA > 150 L/M");
+                }
+            }
+
+            const spInput = document.getElementById('spInput');
+            if (state.mode.startsWith('R')) {
+                state.sp = 3700;
+                spInput.value = 3700;
+                spInput.disabled = true;
+            } else {
+                spInput.disabled = false;
+            }
+            
+            if (state.ligada && (state.mode === 'LA' || state.mode === 'RA')) {
+                let targetCv = (state.sp / 3700) * 45;
+                let diff = targetCv - state.cv;
+                if (Math.abs(diff) > 0.01) {
+                    state.cv += diff * 0.002; 
+                    state.cv = Math.min(100, Math.max(0, state.cv));
+                    document.getElementById('cvSlider').value = state.cv;
+                }
+            }
+
+            document.getElementById('cvValue').innerText = state.cv.toFixed(1);
+            document.getElementById('pvText').innerText = state.pv.toFixed(0);
+            document.getElementById('spText').innerText = state.sp.toFixed(0);
+            document.getElementById('pvBar').style.height = (Math.max(0, state.pv) / 5200 * 100) + '%';
+            document.getElementById('spBar').style.height = (state.sp / 5200 * 100) + '%';
+        };
+
+        function showError(msg) {
+            const err = document.getElementById('errorMessage');
+            err.innerText = msg;
+            err.classList.remove('hidden');
+            setTimeout(() => err.classList.add('hidden'), 4000);
+        }
+
+        function updateButtonUI() {
+            const btn = document.getElementById('btnBba055');
+            btn.innerText = state.ligada ? "Bba.055 LIGADA" : "Bba.055 DESLIGADA";
+            btn.className = `w-full py-2 px-4 rounded font-bold text-white ${state.ligada ? 'bg-green-600' : 'bg-red-600'}`;
+            document.getElementById('cvSlider').disabled = !state.ligada;
+        }
+
+        document.getElementById('btnBba055').onclick = () => {
+            if (!state.ligada) { state.atingiuLimite = false; }
+            state.ligada = !state.ligada;
+            if (!state.ligada) state.cv = 0;
+            document.getElementById('cvSlider').value = state.cv;
+            updateButtonUI();
+        };
+
+        document.getElementById('spInput').onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                let val = parseFloat(e.target.value) || 0;
+                state.sp = Math.min(5200, val);
+                e.target.value = state.sp;
+                e.target.blur();
+            }
+        };
+
+        document.getElementById('cvSlider').oninput = (e) => {
+            if (state.ligada) state.cv = parseFloat(e.target.value);
+        };
+
+        document.getElementById('mode').onchange = (e) => state.mode = e.target.value;
+
+        setInterval(update, 50);
+    </script>
+</body>
+</html>
