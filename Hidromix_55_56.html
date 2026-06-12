@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Avançado: Água Branca / Vácuo - HMI Industrial</title>
+    <!-- Carregando Tailwind CSS para estilização moderna -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@300;400;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #030712;
+            color: #f3f4f6;
+        }
+        .digital-font {
+            font-family: 'Share Tech Mono', monospace;
+        }
+        
+        /* Animações realistas para fluxo de fluidos */
+        @keyframes flow-right { to { stroke-dashoffset: -30; } }
+        @keyframes flow-left { to { stroke-dashoffset: 30; } }
+        
+        .pipe-flow-water {
+            stroke-dasharray: 8, 4;
+            animation: flow-right 1s linear infinite;
+            stroke: #0ea5e9; /* Azul brilhante para água branca */
+        }
+        .pipe-flow-water-return {
+            stroke-dasharray: 8, 4;
+            animation: flow-right 1.2s linear infinite;
+            stroke: #38bdf8; /* Azul claro para recirculação */
+        }
+        .pipe-flow-vacuum {
+            stroke-dasharray: 4, 8;
+            animation: flow-left 0.7s linear infinite;
+            stroke: #94a3b8; /* Cinza para vácuo */
+            opacity: 0.85;
+        }
+        .pipe-flow-stock {
+            stroke-dasharray: 10, 5;
+            animation: flow-right 1.4s linear infinite;
+            stroke: #c084fc; /* Roxo para massa/mistura */
+        }
+        
+        /* Efeitos nos elementos interativos */
+        .interactive-svg {
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .interactive-svg:hover {
+            filter: drop-shadow(0 0 8px rgba(14, 165, 233, 0.8)) brightness(1.2);
+        }
+        
+        /* Custom Scrollbar */
+        .scrollbar-custom::-webkit-scrollbar { width: 6px; }
+        .scrollbar-custom::-webkit-scrollbar-track { background: #030712; }
+        .scrollbar-custom::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
+        .scrollbar-custom::-webkit-scrollbar-thumb:hover { background: #374151; }
+
+        /* Range sliders no sinótico */
+        input[type=range].svg-slider {
+            width: 100%;
+            height: 6px;
+            background: #1e293b;
+            border-radius: 4px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        input[type=range].svg-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #0ea5e9;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #030712;
+            transition: background 0.15s;
+        }
+        input[type=range].svg-slider::-webkit-slider-thumb:hover {
+            background: #38bdf8;
+        }
+        input[type=range].svg-slider.amber::-webkit-slider-thumb {
+            background: #f59e0b;
+        }
+        input[type=range].svg-slider.amber::-webkit-slider-thumb:hover {
+            background: #fbbf24;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-sky-500 selection:text-slate-950 overflow-x-hidden">
+
+    <!-- Header / Barra de Título -->
+    <header class="bg-slate-950 border-b border-slate-900 px-6 py-4 flex flex-wrap items-center justify-between gap-4 shadow-xl relative z-10">
+        <div class="flex items-center gap-4">
+            <div id="status-badge" class="bg-sky-500/10 border border-sky-500/30 text-sky-400 px-3 py-1.5 rounded-md text-xs font-bold tracking-widest uppercase animate-pulse flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
+                SEQUÊNCIA DE PARTIDA
+            </div>
+            <div>
+                <h1 class="text-lg font-black tracking-wider text-white uppercase flex items-center gap-2">
+                    Sistema de Água Branca e Vácuo
+                </h1>
+                <p class="text-xs text-slate-500 font-medium">HMI Industrial Avançado de Operação Local (Foco Duplo Nível TNQ-002)</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-4 flex-wrap">
+            <div class="bg-slate-900 border border-slate-800 rounded-lg px-4 py-1.5 text-xs font-semibold text-slate-400 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                <span>Modo Local: Interativo</span>
+            </div>
+            <button onclick="resetSimulation()" class="bg-slate-900 hover:bg-slate-800 active:scale-95 text-xs font-bold px-4 py-2 rounded-lg border border-slate-800 hover:border-slate-700 text-slate-300 transition-all flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H17" />
+                </svg>
+                Reiniciar Processo
+            </button>
+        </div>
+    </header>
+
+    <!-- Banner de Intertravamento / Erro -->
+    <div id="error-banner" class="hidden bg-rose-950/90 border-b border-rose-800/80 px-6 py-3.5 text-rose-100 text-sm flex items-center justify-between transition-all duration-300 z-20">
+        <div class="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-rose-500 shrink-0 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+                <span class="font-extrabold tracking-wide text-rose-400">ALERTA DE SEGURANÇA / INTERTRAVAMENTO:</span> 
+                <span id="error-message" class="ml-1 font-medium">Erro na ordem operacional estabelecida no DCS.</span>
+            </div>
+        </div>
+        <button onclick="dismissError()" class="text-rose-400 hover:text-white transition font-black text-xl px-2">&times;</button>
+    </div>
+
+    <!-- Layout de Conteúdo -->
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6">
+        
+        <!-- PAINEL ESQUERDO: Sinótico SCADA/HMI -->
+        <section class="lg:col-span-7 bg-slate-950 border border-slate-900 rounded-xl p-5 flex flex-col shadow-2xl relative">
+            <div class="flex items-center justify-between border-b border-slate-900 pb-3.5 mb-4">
+                <span class="text-xs font-bold text-sky-400 uppercase tracking-widest flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span> 
+                    Diagrama de Fluxo de Processo (P&ID)
+                </span>
+                <div class="flex gap-4 text-[10px] font-semibold text-slate-400">
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Operando</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-600"></span> Desligado</span>
+                </div>
+            </div>
+
+            <!-- SVG Container -->
+            <div class="flex-1 w-full bg-[#030712] rounded-lg p-1 border border-slate-900/60 flex items-center justify-center relative overflow-hidden">
+                <div class="absolute inset-0 pointer-events-none opacity-[0.02] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:16px_16px]"></div>
+                
+                <svg id="scada-svg" viewBox="0 0 900 600" class="w-full h-full max-h-[580px] select-none text-slate-300">
+                    <defs>
+                        <!-- Gradientes para tanques e vasos de pressão -->
+                        <linearGradient id="tankGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#1e293b" />
+                            <stop offset="50%" stop-color="#334155" />
+                            <stop offset="100%" stop-color="#0f172a" />
+                        </linearGradient>
+                        <linearGradient id="mesaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#334155" />
+                            <stop offset="100%" stop-color="#111827" />
+                        </linearGradient>
+                        <linearGradient id="hidroGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#475569" />
+                            <stop offset="50%" stop-color="#1e293b" />
+                            <stop offset="100%" stop-color="#030712" />
+                        </linearGradient>
+                    </defs>
+
+                    <!-- TUBULAÇÕES E LINHAS DE SINALIZAÇÃO (BACKGROUND DE TUBOS VAZIOS) -->
+                    <path d="M 250 80 L 250 50 L 550 50 L 550 80" fill="none" stroke="#111827" stroke-width="7" />
+                    <path d="M 120 400 L 170 400" fill="none" stroke="#111827" stroke-width="9" />
+                    <path d="M 190 380 L 190 310 L 362 310 L 362 350" fill="none" stroke="#111827" stroke-width="9" />
+                    <path d="M 440 215 L 440 310 L 362 310" fill="none" stroke="#111827" stroke-width="9" />
+                    <path d="M 400 400 L 440 400" fill="none" stroke="#111827" stroke-width="9" />
+                    <path d="M 480 400 L 600 400" fill="none" stroke="#111827" stroke-width="9" />
+                    <path d="M 380 202 L 420 202 L 420 235" fill="none" stroke="#111827" stroke-width="9" />
+                    <path d="M 640 450 L 640 480" fill="none" stroke="#111827" stroke-width="9" />
+                    <path d="M 660 500 L 850 500 L 850 150 L 580 150 L 580 180" fill="none" stroke="#111827" stroke-width="9" />
+                    <path d="M 680 380 L 730 380" fill="none" stroke="#111827" stroke-width="9" />
+                    <path d="M 770 380 L 810 380 L 810 110 L 580 110" fill="none" stroke="#111827" stroke-width="9" />
+                    <path d="M 362 450 L 362 490" fill="none" stroke="#111827" stroke-width="9" />
+                    <path d="M 330 140 L 330 180" fill="none" stroke="#111827" stroke-width="9" />
+                    <path d="M 287 450 L 287 496" fill="none" stroke="#111827" stroke-width="9" />
+                    <path d="M 287 524 L 287 545 L 45 545 L 45 300 L 70 300 L 70 320" fill="none" stroke="#111827" stroke-width="9" />
+
+                    <!-- FLUXO OPERANTE DE TUBULAÇÃO (ATIVADO OPERACIONALMENTE) -->
+                    <path id="pipe-vac-q" d="M 250 80 L 250 50 L 400 50" fill="none" stroke-width="5" class="hidden pipe-flow-vacuum" />
+                    <path id="pipe-vac-a" d="M 550 80 L 550 50 L 400 50" fill="none" stroke-width="5" class="hidden pipe-flow-vacuum" />
+                    <path id="pipe-231-1" d="M 120 400 L 170 400" fill="none" stroke-width="6" class="hidden pipe-flow-water" />
+                    <path id="pipe-231-2" d="M 190 380 L 190 310 L 362 310 L 362 350" fill="none" stroke-width="6" class="hidden pipe-flow-water" />
+                    <path id="pipe-223" d="M 380 202 L 420 202 L 420 235 M 440 215 L 440 310 L 362 310" fill="none" stroke-width="6" class="hidden pipe-flow-water" />
+                    <path id="pipe-descarte" d="M 362 450 L 362 520" fill="none" stroke="#ef4444" stroke-width="5" stroke-dasharray="8,4" class="hidden pipe-flow-water opacity-60" />
+                    <path id="pipe-014-flow" d="M 287 450 L 287 496 M 287 524 L 287 545 L 45 545 L 45 300 L 70 300 L 70 320" fill="none" stroke-width="5" class="hidden pipe-flow-water-return" />
+                    <path id="pipe-012" d="M 400 400 L 440 400 M 480 400 L 600 400" fill="none" stroke-width="6" class="hidden pipe-flow-water" />
+                    <path id="pipe-055" d="M 680 380 L 730 380 M 770 380 L 810 380 L 810 110 L 580 110" fill="none" stroke-width="6" class="hidden pipe-flow-water" />
+                    <path id="pipe-056" d="M 640 450 L 640 480 M 660 500 L 850 500 L 850 150 L 580 150 L 580 180" fill="none" stroke-width="6" class="hidden pipe-flow-stock" />
+
+                    <!-- MESA FORMADORA -->
+                    <g id="mesa">
+                        <rect x="230" y="80" width="350" height="60" rx="4" fill="url(#mesaGrad)" stroke="#475569" stroke-width="2" />
+                        <text x="405" y="115" fill="#e2e8f0" font-size="13" font-weight="800" tracking="2" text-anchor="middle">MESA FORMADORA</text>
+                        
+                        <text id="val-vac-quebra" x="250" y="40" fill="#38bdf8" font-size="11" text-anchor="middle" class="digital-font font-extrabold">0%</text>
+                        <text x="250" y="24" fill="#94a3b8" font-size="9" text-anchor="middle" font-weight="700">Q.VÁCUO</text>
+                        <foreignObject x="210" y="43" width="80" height="15">
+                            <div xmlns="http://www.w3.org/1999/xhtml" class="w-full h-full flex items-center">
+                                <input type="range" id="svg-slider-vac-q" min="0" max="100" value="0" class="svg-slider" oninput="syncSliders('vac-q', this.value)">
+                            </div>
+                        </foreignObject>
+
+                        <text id="val-vac-alto" x="550" y="40" fill="#38bdf8" font-size="11" text-anchor="middle" class="digital-font font-extrabold">0%</text>
+                        <text x="550" y="24" fill="#94a3b8" font-size="9" text-anchor="middle" font-weight="700">A.VÁCUO</text>
+                        <foreignObject x="510" y="43" width="80" height="15">
+                            <div xmlns="http://www.w3.org/1999/xhtml" class="w-full h-full flex items-center">
+                                <input type="range" id="svg-slider-vac-a" min="0" max="100" value="0" class="svg-slider" oninput="syncSliders('vac-a', this.value)">
+                            </div>
+                        </foreignObject>
+                    </g>
+
+                    <!-- RESERVATÓRIO TNQ-016 -->
+                    <g id="tnq-016">
+                        <rect x="20" y="320" width="100" height="120" rx="4" fill="url(#tankGrad)" stroke="#475569" stroke-width="2" />
+                        <text x="70" y="380" fill="#e2e8f0" font-size="12" font-weight="bold" text-anchor="middle">TNQ-016</text>
+                        <text x="70" y="396" fill="#64748b" font-size="9" font-weight="bold" text-anchor="middle">FIBRA RECUP.</text>
+                    </g>
+
+                    <!-- RESERVATÓRIO TNQ-002 -->
+                    <g id="tnq-002">
+                        <rect x="250" y="350" width="150" height="100" rx="4" fill="url(#tankGrad)" stroke="#475569" stroke-width="2" />
+                        <text x="325" y="362" fill="#94a3b8" font-size="10" font-weight="black" text-anchor="middle">TNQ-002</text>
+                        
+                        <!-- Divisória Interna -->
+                        <line x1="325" y1="375" x2="325" y2="450" stroke="#475569" stroke-width="3" stroke-dasharray="none" />
+                        
+                        <text x="287" y="380" fill="#64748b" font-size="8" font-weight="extrabold" text-anchor="middle">ÁGUA EXC.</text>
+                        <text x="362" y="380" fill="#38bdf8" font-size="8" font-weight="extrabold" text-anchor="middle">ÁGUA BRANCA</text>
+                        
+                        <!-- Indicador Nível ÁGUA BRANCA (Altura máxima 50, Bottom y=440) -->
+                        <rect x="357" y="390" width="10" height="50" rx="1" fill="#030712" stroke="#334155" />
+                        <rect id="nivel-agua-branca" x="357" y="440" width="10" height="0" rx="1" fill="#0ea5e9" class="transition-all duration-300" />
+                        
+                        <!-- Indicador Nível ÁGUA EXCEDENTE -->
+                        <rect x="282" y="390" width="10" height="50" rx="1" fill="#030712" stroke="#334155" />
+                        <rect id="nivel-agua-excedente" x="282" y="440" width="10" height="0" rx="1" fill="#38bdf8" class="transition-all duration-300" />
+                    </g>
+
+                    <!-- Válvula de Descarte -->
+                    <g id="valve-descarte-group" onclick="toggleDescarte()" class="interactive-svg">
+                        <rect x="340" y="455" width="100" height="35" fill="transparent" /> 
+                        <polygon id="valve-descarte" points="352,465 372,465 362,485" fill="#ef4444" />
+                        <text x="384" y="478" fill="#ef4444" font-size="9" id="lbl-descarte" font-weight="800">DRENO (FECHADO)</text>
+                    </g>
+
+                    <text x="270" y="303" fill="#cbd5e1" font-size="9" font-weight="bold" text-anchor="middle" class="digital-font">LV.004</text>
+                    <text x="110" y="538" fill="#cbd5e1" font-size="9" font-weight="bold" text-anchor="middle" class="digital-font">LV.005</text>
+
+                    <!-- TANQUE TNQ-015 -->
+                    <g id="tnq-015">
+                        <rect x="280" y="150" width="130" height="85" rx="4" fill="url(#tankGrad)" stroke="#475569" stroke-width="2" />
+                        <text x="345" y="185" fill="#e2e8f0" font-size="12" font-weight="bold" text-anchor="middle">TNQ-015</text>
+                        <text x="345" y="200" fill="#64748b" font-size="9" text-anchor="middle" font-weight="bold">(SELAGEM)</text>
+                        
+                        <rect x="290" y="165" width="8" height="60" rx="1" fill="#030712" stroke="#334155" />
+                        <!-- Bottom = 225, Max height = 60 -->
+                        <rect id="nivel-tnq015" x="290" y="195" width="8" height="30" rx="1" fill="#0ea5e9" class="transition-all duration-300" />
+                    </g>
+
+                    <!-- HIDROMIX -->
+                    <g id="hidromix">
+                        <polygon points="580,180 700,180 680,450 600,450" fill="url(#hidroGrad)" stroke="#475569" stroke-width="2" />
+                        <text x="640" y="320" fill="#e2e8f0" font-size="14" font-weight="900" tracking="4" text-anchor="middle" transform="rotate(-90 640 320)">HIDROMIX</text>
+                    </g>
+
+                    <!-- BOMBAS -->
+                    <g id="bba-231" onclick="toggleBBA(231)" class="interactive-svg">
+                        <circle cx="190" cy="400" r="20" fill="#1e293b" stroke="#475569" stroke-width="2.5" />
+                        <circle id="led-231" cx="190" cy="400" r="6" fill="#ef4444" />
+                        <text x="190" y="438" fill="#cbd5e1" font-size="10.5" font-weight="bold" text-anchor="middle">BBA-231</text>
+                    </g>
+
+                    <g id="bba-012" onclick="toggleBBA(12)" class="interactive-svg">
+                        <circle cx="460" cy="400" r="20" fill="#1e293b" stroke="#475569" stroke-width="2.5" />
+                        <circle id="led-012" cx="460" cy="400" r="6" fill="#ef4444" />
+                        <text x="460" y="438" fill="#cbd5e1" font-size="10.5" font-weight="bold" text-anchor="middle">BBA-012</text>
+                    </g>
+
+                    <g id="bba-223" onclick="toggleMode223()" class="interactive-svg">
+                        <circle cx="440" cy="235" r="20" fill="#1e293b" stroke="#475569" stroke-width="2.5" />
+                        <circle id="led-223" cx="440" cy="235" r="6" fill="#ef4444" />
+                        <text x="440" y="273" fill="#cbd5e1" font-size="10.5" font-weight="bold" text-anchor="middle">BBA-223</text>
+                        <rect id="badge-223" x="421" y="228" width="38" height="14" rx="2.5" fill="#ef4444" />
+                        <text id="txt-bba-223-mode" x="440" y="238" fill="#030712" font-size="8.5" font-weight="900" text-anchor="middle">MANUAL</text>
+                    </g>
+
+                    <g id="bba-014">
+                        <circle cx="287" cy="510" r="14" fill="#1e293b" stroke="#475569" stroke-width="2" />
+                        <circle id="led-014" cx="287" cy="510" r="4.5" fill="#ef4444" />
+                        <text x="325" y="514" fill="#cbd5e1" font-size="9" font-weight="bold" text-anchor="middle">BBA-014</text>
+                    </g>
+
+                    <g id="bba-055" onclick="toggleBBA(55)" class="interactive-svg">
+                        <circle cx="750" cy="380" r="20" fill="#1e293b" stroke="#475569" stroke-width="2.5" />
+                        <circle id="led-055" cx="750" cy="380" r="6" fill="#ef4444" />
+                        <text x="750" y="418" fill="#cbd5e1" font-size="10.5" font-weight="bold" text-anchor="middle">BBA-055</text>
+                    </g>
+                    
+                    <g id="inversor-055">
+                        <polygon points="780,370 780,390 800,380" fill="#cbd5e1" />
+                        <text id="val-diluicao-svg" x="800" y="355" fill="#f59e0b" font-size="11" text-anchor="middle" class="digital-font font-black">0%</text>
+                        <foreignObject x="760" y="360" width="80" height="20">
+                            <div xmlns="http://www.w3.org/1999/xhtml" class="w-full h-full flex items-center">
+                                <input type="range" id="svg-slider-diluicao" min="0" max="100" value="0" class="svg-slider amber" oninput="syncSliders('diluicao', this.value)">
+                            </div>
+                        </foreignObject>
+                    </g>
+
+                    <g id="bba-056" onclick="toggleBBA(56)" class="interactive-svg">
+                        <circle cx="650" cy="500" r="20" fill="#1e293b" stroke="#475569" stroke-width="2.5" />
+                        <circle id="led-056" cx="650" cy="500" r="6" fill="#ef4444" />
+                        <text x="650" y="538" fill="#cbd5e1" font-size="10.5" font-weight="bold" text-anchor="middle">BBA-056</text>
+                    </g>
+
+                </svg>
+
+                <!-- Overlay de Estabilização Temporal -->
+                <div id="wait-overlay" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 z-30 transition-all duration-300">
+                    <div class="bg-slate-900 border border-sky-500/35 p-6 rounded-xl shadow-2xl flex flex-col items-center max-w-sm">
+                        <svg class="animate-spin h-9 w-9 text-sky-500 mb-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <h4 class="text-sky-400 font-extrabold uppercase tracking-widest text-sm mb-1.5">Estabilizando Vácuo</h4>
+                        <p class="text-xs text-slate-400 mb-4 font-medium">Os extratores pneumáticos estão aplicando pressão negativa estável na mesa de formação...</p>
+                        <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                            <div id="vac-progress" class="bg-sky-500 h-full w-0 transition-all duration-100 ease-out"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Registro Operacional do DCS -->
+            <div class="mt-4 bg-[#010409] border border-slate-900 rounded-lg p-3.5 flex flex-col h-40 overflow-hidden">
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-900 pb-2 mb-2 flex justify-between">
+                    <span>Sistema de Registro Operacional (DCS Log)</span>
+                    <span id="log-clock" class="digital-font text-sky-400 font-extrabold text-sm">00:00:00</span>
+                </div>
+                <div id="system-log" class="flex-1 overflow-y-auto text-xs font-mono text-slate-300 space-y-2 pr-2 scrollbar-custom">
+                    <p class="text-slate-500">&gt; Sistema HMI Inicializado. Siga as etapas descritas no Checklist de Partida.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAINEL DIREITO: Checklist Operacional Dinâmico -->
+        <section class="lg:col-span-5 flex flex-col gap-4 overflow-y-auto pr-1 scrollbar-custom max-h-[85vh]">
+            
+            <div class="bg-slate-950 border border-slate-900 rounded-xl p-5 shadow-2xl">
+                <h3 class="text-sm font-black uppercase tracking-wider text-slate-100 mb-4 flex items-center gap-2.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                    Checklist de Partida Sequencial
+                </h3>
+
+                <div class="space-y-4">
+                    
+                    <!-- PASSO 1: VÁCUO DA MESA -->
+                    <div id="step-1" class="step-card border border-sky-500/50 bg-sky-950/10 rounded-xl p-4.5 relative overflow-hidden transition-all duration-300">
+                        <div class="absolute left-0 top-0 w-1.5 h-full bg-sky-500" id="bar-1"></div>
+                        <div class="flex justify-between items-start mb-2.5 pl-2">
+                            <h4 class="text-xs font-black tracking-wide text-white">
+                                <span class="bg-sky-500 text-slate-950 px-2 py-0.5 rounded-md mr-1.5 font-bold">1</span>
+                                AJUSTE OPERACIONAL DE VÁCUO
+                            </h4>
+                            <span id="status-1" class="text-[9px] font-black text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-full uppercase tracking-wider">Em curso</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 pl-2 mb-4 leading-relaxed">Defina os parâmetros de pressão no sinótico: <strong class="text-sky-300">Q.Vácuo em 100%</strong> e <strong class="text-sky-300">A.Vácuo entre 25% e 35%</strong> para estabilizar.</p>
+                        
+                        <div class="pl-2 space-y-3 opacity-90">
+                            <div>
+                                <div class="flex justify-between text-[11px] mb-1 font-semibold text-slate-400">
+                                    <span>Válvula Reguladora Quebra-Vácuo</span>
+                                    <span id="lbl-vac-q" class="text-sky-400 font-bold digital-font text-xs">0%</span>
+                                </div>
+                                <input type="range" id="slider-vac-q" min="0" max="100" value="0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500" oninput="syncSliders('vac-q', this.value)">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-[11px] mb-1 font-semibold text-slate-400">
+                                    <span>Válvula Reguladora Alto-Vácuo</span>
+                                    <span id="lbl-vac-a" class="text-sky-400 font-bold digital-font text-xs">0%</span>
+                                </div>
+                                <input type="range" id="slider-vac-a" min="0" max="100" value="0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500" oninput="syncSliders('vac-a', this.value)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PASSO 2: BBA-223 EM AUTOMÁTICO -->
+                    <div id="step-2" class="step-card border border-slate-900 bg-slate-950/40 rounded-xl p-4.5 relative overflow-hidden opacity-45 pointer-events-none transition-all duration-300">
+                        <div class="absolute left-0 top-0 w-1.5 h-full bg-slate-800" id="bar-2"></div>
+                        <div class="flex justify-between items-start mb-2 pl-2">
+                            <h4 class="text-xs font-black tracking-wide text-slate-400">
+                                <span class="bg-slate-800 text-slate-400 px-2 py-0.5 rounded-md mr-1.5 font-bold">2</span> 
+                                SELAGEM: BBA-223 EM AUTOMÁTICO
+                            </h4>
+                            <span id="status-2" class="text-[9px] font-black text-slate-500 bg-slate-800/50 px-2.5 py-0.5 rounded-full uppercase tracking-wider">Aguardando</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 pl-2 leading-relaxed">Clique no ícone da BBA-223 no diagrama ao lado para alternar o modo para <strong class="text-emerald-400">AUTO</strong>. Isso garante que ela acione sozinha caso falte água de selagem.</p>
+                    </div>
+
+                    <!-- PASSO 3: PARTIDA BBA-231 -->
+                    <div id="step-3" class="step-card border border-slate-900 bg-slate-950/40 rounded-xl p-4.5 relative overflow-hidden opacity-45 pointer-events-none transition-all duration-300">
+                        <div class="absolute left-0 top-0 w-1.5 h-full bg-slate-800" id="bar-3"></div>
+                        <div class="flex justify-between items-start mb-2 pl-2">
+                            <h4 class="text-xs font-black tracking-wide text-slate-400">
+                                <span class="bg-slate-800 text-slate-400 px-2 py-0.5 rounded-md mr-1.5 font-bold">3</span> 
+                                ENCHIMENTO DO TNQ-002 (BBA-231)
+                            </h4>
+                            <span id="status-3" class="text-[9px] font-black text-slate-500 bg-slate-800/50 px-2.5 py-0.5 rounded-full uppercase tracking-wider">Aguardando</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 pl-2 leading-relaxed">Verifique se o Dreno está fechado. Em seguida, acione a bomba <strong class="text-sky-300">BBA-231</strong> para preencher o tanque TNQ-002. Aguarde atingir o nível operacional seguro (> 40%).</p>
+                    </div>
+
+                    <!-- PASSO 4: BOMBAS DE PROCESSO -->
+                    <div id="step-4" class="step-card border border-slate-900 bg-slate-950/40 rounded-xl p-4.5 relative overflow-hidden opacity-45 pointer-events-none transition-all duration-300">
+                        <div class="absolute left-0 top-0 w-1.5 h-full bg-slate-800" id="bar-4"></div>
+                        <div class="flex justify-between items-start mb-2 pl-2">
+                            <h4 class="text-xs font-black tracking-wide text-slate-400">
+                                <span class="bg-slate-800 text-slate-400 px-2 py-0.5 rounded-md mr-1.5 font-bold">4</span> 
+                                PARTIDA DO PROCESSO
+                            </h4>
+                            <span id="status-4" class="text-[9px] font-black text-slate-500 bg-slate-800/50 px-2.5 py-0.5 rounded-full uppercase tracking-wider">Aguardando</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 pl-2 leading-relaxed">Com o tanque abastecido, ligue as bombas finais nesta ordem:</p>
+                        <ol class="list-decimal pl-6 mt-2 text-[11px] text-slate-500 font-medium space-y-1">
+                            <li><strong class="text-white">BBA-012</strong> (Distribuição p/ Hidromix)</li>
+                            <li><strong class="text-white">BBA-055</strong> (Diluição - Inversor deve estar > 0%)</li>
+                            <li><strong class="text-white">BBA-056</strong> (Alimentação Máquina)</li>
+                        </ol>
+                        
+                        <div class="pl-2 mt-4">
+                            <div class="flex justify-between text-[11px] mb-1 font-semibold text-slate-400">
+                                <span>Inversor BBA-055 (Diluição)</span>
+                                <span id="lbl-diluicao" class="text-amber-400 font-bold digital-font text-xs">0%</span>
+                            </div>
+                            <input type="range" id="slider-diluicao" min="0" max="100" value="0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500" oninput="syncSliders('diluicao', this.value)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // --- ESTADO DO SISTEMA ---
+        let state = {
+            vacQ: 0,
+            vacA: 0,
+            diluicao: 0,
+            bba: {
+                231: false,
+                12: false,
+                223: { on: false, mode: 'MANUAL' },
+                14: false, // Auto only (Recirculação)
+                55: false,
+                56: false
+            },
+            valves: {
+                descarte: false // false = Fechado, true = Aberto
+            },
+            levels: {
+                tnq015: 50, // Reservatório de selagem infinito simulado
+                tnq002Branca: 0, // Câmara Direita (Água Branca)
+                tnq002Exc: 0     // Câmara Esquerda (Água Excedente)
+            },
+            checklist: 1,
+            error: null,
+            vacuumStabilizing: false
+        };
+
+        // --- REFERÊNCIAS DOM ---
+        const ui = {
+            sliders: {
+                vacQ: document.getElementById('slider-vac-q'),
+                vacA: document.getElementById('slider-vac-a'),
+                diluicao: document.getElementById('slider-diluicao'),
+                svgVacQ: document.getElementById('svg-slider-vac-q'),
+                svgVacA: document.getElementById('svg-slider-vac-a'),
+                svgDiluicao: document.getElementById('svg-slider-diluicao')
+            },
+            labels: {
+                vacQ: document.getElementById('lbl-vac-q'),
+                vacA: document.getElementById('lbl-vac-a'),
+                diluicao: document.getElementById('lbl-diluicao'),
+                svgVacQ: document.getElementById('val-vac-quebra'),
+                svgVacA: document.getElementById('val-vac-alto'),
+                svgDiluicao: document.getElementById('val-diluicao-svg'),
+                clock: document.getElementById('log-clock')
+            },
+            log: document.getElementById('system-log'),
+            errorBanner: document.getElementById('error-banner'),
+            errorMessage: document.getElementById('error-message'),
+            overlay: document.getElementById('wait-overlay'),
+            progress: document.getElementById('vac-progress'),
+            statusBadge: document.getElementById('status-badge')
+        };
+
+        // --- FUNÇÕES DE INTERFACE ---
+        function addLog(msg, type = 'info') {
+            const time = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+            const p = document.createElement('p');
+            if (type === 'error') p.className = 'text-rose-400 font-bold';
+            else if (type === 'success') p.className = 'text-emerald-400';
+            else if (type === 'warn') p.className = 'text-amber-400';
+            else p.className = 'text-slate-500';
+            p.innerHTML = `<span class="text-slate-600">[${time}]</span> ${msg}`;
+            ui.log.appendChild(p);
+            ui.log.scrollTop = ui.log.scrollHeight;
+        }
+
+        setInterval(() => {
+            ui.labels.clock.innerText = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+        }, 1000);
+
+        function showError(msg) {
+            state.error = msg;
+            ui.errorMessage.innerText = msg;
+            ui.errorBanner.classList.remove('hidden');
+            addLog(`FALHA DE INTERTRAVAMENTO: ${msg}`, 'error');
+        }
+
+        function dismissError() {
+            state.error = null;
+            ui.errorBanner.classList.add('hidden');
+        }
+
+        // --- SINCRONIZAÇÃO DE SLIDERS ---
+        window.syncSliders = function(id, val) {
+            const numVal = parseInt(val);
+            if (id === 'vac-q') {
+                state.vacQ = numVal;
+                ui.sliders.vacQ.value = numVal;
+                ui.sliders.svgVacQ.value = numVal;
+                ui.labels.vacQ.textContent = `${numVal}%`;
+                ui.labels.svgVacQ.textContent = `${numVal}%`;
+            } else if (id === 'vac-a') {
+                state.vacA = numVal;
+                ui.sliders.vacA.value = numVal;
+                ui.sliders.svgVacA.value = numVal;
+                ui.labels.vacA.textContent = `${numVal}%`;
+                ui.labels.svgVacA.textContent = `${numVal}%`;
+            } else if (id === 'diluicao') {
+                state.diluicao = numVal;
+                ui.sliders.diluicao.value = numVal;
+                ui.sliders.svgDiluicao.value = numVal;
+                ui.labels.diluicao.textContent = `${numVal}%`;
+                ui.labels.svgDiluicao.textContent = `${numVal}%`;
+            }
+            checkStep1();
+        }
+
+        // --- AÇÕES DO DIAGRAMA ---
+        window.toggleDescarte = function() {
+            state.valves.descarte = !state.valves.descarte;
+            const poly = document.getElementById('valve-descarte');
+            const lbl = document.getElementById('lbl-descarte');
+            const pipe = document.getElementById('pipe-descarte');
+            
+            if (state.valves.descarte) {
+                poly.setAttribute('fill', '#10b981'); // Verde
+                lbl.innerHTML = 'DRENO (ABERTO)';
+                lbl.setAttribute('fill', '#10b981');
+                pipe.classList.remove('hidden');
+                addLog('Válvula de Dreno do TNQ-002 ABERTA.', 'warn');
+            } else {
+                poly.setAttribute('fill', '#ef4444'); // Vermelho
+                lbl.innerHTML = 'DRENO (FECHADO)';
+                lbl.setAttribute('fill', '#ef4444');
+                pipe.classList.add('hidden');
+                addLog('Válvula de Dreno do TNQ-002 FECHADA.');
+            }
+        }
+
+        window.toggleMode223 = function() {
+            if (state.checklist < 2) return;
+            const btn = state.bba[223];
+            btn.mode = btn.mode === 'MANUAL' ? 'AUTO' : 'MANUAL';
+            
+            const badge = document.getElementById('badge-223');
+            const txt = document.getElementById('txt-bba-223-mode');
+            
+            if (btn.mode === 'AUTO') {
+                badge.setAttribute('fill', '#10b981');
+                txt.innerHTML = 'AUTO';
+                addLog('BBA-223 comutada para MODO AUTOMÁTICO.', 'success');
+                checkStep2();
+            } else {
+                badge.setAttribute('fill', '#ef4444');
+                txt.innerHTML = 'MANUAL';
+                btn.on = false; // Desliga se voltar pro manual
+                addLog('BBA-223 comutada para MODO MANUAL.', 'warn');
+            }
+            updateLeds();
+        }
+
+        window.toggleBBA = function(id) {
+            // Regras de Intertravamento
+            if (id === 231 && state.checklist < 3) return;
+            if ((id === 12 || id === 55 || id === 56) && state.checklist < 4) {
+                showError(`Sequência Incorreta: Aguarde a liberação do passo 4 para acionar BBA-${id.toString().padStart(3, '0')}.`);
+                return;
+            }
+
+            if (id === 12 && !state.bba[12]) {
+                if (state.levels.tnq002Branca < 10) {
+                    showError("Bomba BBA-012 não pode partir a seco (Nível TNQ-002 Água Branca < 10%).");
+                    return;
+                }
+            }
+            if (id === 55 && !state.bba[55]) {
+                if (!state.bba[12]) {
+                    showError("Intertravamento: BBA-055 não pode partir sem a BBA-012 ativa.");
+                    return;
+                }
+            }
+            if (id === 56 && !state.bba[56]) {
+                if (!state.bba[12] || !state.bba[55]) {
+                    showError("Intertravamento: BBA-056 exige bombas de Distribuição e Diluição ativas.");
+                    return;
+                }
+            }
+
+            state.bba[id] = !state.bba[id];
+            addLog(`Bomba BBA-${id.toString().padStart(3, '0')} ${state.bba[id] ? 'LIGADA' : 'DESLIGADA'}.`, state.bba[id] ? 'success' : 'warn');
+            
+            if (id === 231 && state.valves.descarte && state.bba[id]) {
+                addLog('Aviso: Enchendo tanque com dreno aberto! A água será perdida.', 'error');
+            }
+
+            updateLeds();
+        }
+
+        function updateLeds() {
+            const turnLed = (id, isOn) => {
+                const led = document.getElementById(`led-${id.toString().padStart(3,'0')}`);
+                if(led) led.setAttribute('fill', isOn ? '#10b981' : '#ef4444');
+            };
+            turnLed(231, state.bba[231]);
+            turnLed(12, state.bba[12]);
+            turnLed(223, state.bba[223].on);
+            turnLed(14, state.bba[14]);
+            turnLed(55, state.bba[55]);
+            turnLed(56, state.bba[56]);
+
+            // Atualiza canos
+            document.getElementById('pipe-231-1').classList.toggle('hidden', !state.bba[231]);
+            document.getElementById('pipe-231-2').classList.toggle('hidden', !state.bba[231]);
+            document.getElementById('pipe-012').classList.toggle('hidden', !state.bba[12]);
+            document.getElementById('pipe-223').classList.toggle('hidden', !state.bba[223].on);
+            document.getElementById('pipe-014-flow').classList.toggle('hidden', !state.bba[14]);
+            document.getElementById('pipe-055').classList.toggle('hidden', !state.bba[55]);
+            document.getElementById('pipe-056').classList.toggle('hidden', !state.bba[56]);
+            
+            if (state.vacQ === 100 && state.vacA > 0) {
+                document.getElementById('pipe-vac-q').classList.remove('hidden');
+                document.getElementById('pipe-vac-a').classList.remove('hidden');
+            } else {
+                document.getElementById('pipe-vac-q').classList.add('hidden');
+                document.getElementById('pipe-vac-a').classList.add('hidden');
+            }
+        }
+
+        // --- LÓGICA DO CHECKLIST ---
+        function unlockStep(step) {
+            state.checklist = step;
+            const card = document.getElementById(`step-${step}`);
+            if (card) {
+                card.classList.remove('opacity-45', 'pointer-events-none');
+                card.classList.add('border-sky-500/50', 'bg-sky-950/10');
+                card.classList.remove('border-slate-900', 'bg-slate-950/40');
+                
+                document.getElementById(`bar-${step}`).classList.remove('bg-slate-800');
+                document.getElementById(`bar-${step}`).classList.add('bg-sky-500');
+
+                const status = document.getElementById(`status-${step}`);
+                status.innerText = "Em curso";
+                status.className = "text-[9px] font-black text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-full uppercase tracking-wider";
+                
+                addLog(`PASSO ${step} LIBERADO.`, 'info');
+            }
+        }
+
+        function completeStep(step) {
+            const card = document.getElementById(`step-${step}`);
+            if (card) {
+                card.classList.remove('border-sky-500/50', 'bg-sky-950/10');
+                card.classList.add('border-emerald-500/50', 'bg-emerald-950/20');
+                
+                document.getElementById(`bar-${step}`).classList.remove('bg-sky-500');
+                document.getElementById(`bar-${step}`).classList.add('bg-emerald-500');
+
+                const status = document.getElementById(`status-${step}`);
+                status.innerText = "Concluído";
+                status.className = "text-[9px] font-black text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full uppercase tracking-wider";
+            }
+        }
+
+        function checkStep1() {
+            if (state.checklist === 1 && !state.vacuumStabilizing) {
+                if (state.vacQ === 100 && state.vacA >= 25 && state.vacA <= 35) {
+                    state.vacuumStabilizing = true;
+                    ui.overlay.classList.remove('hidden');
+                    let p = 0;
+                    const int = setInterval(() => {
+                        p += 2.5;
+                        ui.progress.style.width = `${p}%`;
+                        if (p >= 100) {
+                            clearInterval(int);
+                            ui.overlay.classList.add('hidden');
+                            completeStep(1);
+                            unlockStep(2);
+                            updateLeds();
+                            addLog('Vácuo estabilizado nos parâmetros ideais.', 'success');
+                        }
+                    }, 50);
+                }
+            }
+        }
+
+        function checkStep2() {
+            if (state.checklist === 2 && state.bba[223].mode === 'AUTO') {
+                completeStep(2);
+                unlockStep(3);
+            }
+        }
+
+        // --- ENGINE DE SIMULAÇÃO (LOOP PRINCIPAL) ---
+        setInterval(() => {
+            // Níveis dos tanques
+            let dBranca = 0;
+            let dExc = 0;
+
+            // Inflows
+            if (state.bba[231]) {
+                dBranca += state.valves.descarte ? 0.5 : 1.5; 
+            }
+            if (state.bba[223].on) dBranca += 1.0;
+            
+            // Outflows
+            if (state.bba[12]) dBranca -= 1.2;
+            if (state.valves.descarte) dBranca -= 2.0;
+            
+            state.levels.tnq002Branca = Math.max(0, state.levels.tnq002Branca + dBranca);
+
+            // Overflow mechanism (Transborda para Água Excedente)
+            if (state.levels.tnq002Branca > 100) {
+                let overflow = state.levels.tnq002Branca - 100;
+                state.levels.tnq002Branca = 100;
+                state.levels.tnq002Exc += overflow;
+            }
+
+            // Automático BBA-014 (Retorno de Excedente)
+            if (state.levels.tnq002Exc > 80 && !state.bba[14]) {
+                state.bba[14] = true;
+                addLog('AUTO: BBA-014 Acionada (Nível de Excedente Alto).', 'warn');
+                updateLeds();
+            }
+            if (state.bba[14]) {
+                state.levels.tnq002Exc -= 2.0;
+                if (state.levels.tnq002Exc <= 20) {
+                    state.bba[14] = false;
+                    addLog('AUTO: BBA-014 Desligada (Nível de Excedente Normal).');
+                    updateLeds();
+                }
+            }
+            state.levels.tnq002Exc = Math.max(0, state.levels.tnq002Exc);
+
+            // Automático BBA-223 (Selagem de Vácuo)
+            if (state.bba[223].mode === 'AUTO') {
+                // Liga se vácuo estiver ativo e houver fluxo, para selagem, ou se precisar encher mais.
+                // Lógica simples: mantem selagem ligada se o passo do vácuo estiver completo
+                let shouldBeOn = (state.checklist > 1 && state.levels.tnq015 > 10);
+                if (shouldBeOn !== state.bba[223].on) {
+                    state.bba[223].on = shouldBeOn;
+                    updateLeds();
+                }
+            }
+
+            // Atualiza alturas visuais dos SVGs (Y = base + (max - atual), Height = atual)
+            // Altura max é 50, Bottom Y é 440 (para os tanques de TNQ-002)
+            const brancaH = (state.levels.tnq002Branca / 100) * 50;
+            const excH = (state.levels.tnq002Exc / 100) * 50;
+            const btnBranca = document.getElementById('nivel-agua-branca');
+            const btnExc = document.getElementById('nivel-agua-excedente');
+            
+            btnBranca.setAttribute('height', brancaH);
+            btnBranca.setAttribute('y', 440 - brancaH);
+            btnExc.setAttribute('height', excH);
+            btnExc.setAttribute('y', 440 - excH);
+
+            // Verificação de Intertravamentos em Tempo Real
+            let tripMessage = null;
+
+            if (state.bba[12] && state.levels.tnq002Branca === 0) {
+                state.bba[12] = false;
+                addLog('Bomba BBA-012 DESLIGADA.', 'warn');
+                tripMessage = 'Desarme Automático BBA-012: TNQ-002 (Câmara Branca) Vazio.';
+            }
+
+            // Intertravamento Cascata: se BBA-012 parar (ou estiver parada), derruba 055 e 056
+            if (!state.bba[12] && (state.bba[55] || state.bba[56])) {
+                if (state.bba[55]) {
+                    state.bba[55] = false;
+                    addLog('Bomba BBA-055 DESLIGADA.', 'warn');
+                }
+                if (state.bba[56]) {
+                    state.bba[56] = false;
+                    addLog('Bomba BBA-056 DESLIGADA.', 'warn');
+                }
+                
+                if (tripMessage) {
+                    tripMessage += ' BBA-055 e BBA-056 desarmadas em cascata.';
+                } else {
+                    tripMessage = 'Desarme em Cascata: BBA-055 e BBA-056 pararam por inatividade da BBA-012.';
+                }
+            }
+
+            if (tripMessage) {
+                updateLeds();
+                showError(tripMessage);
+            }
+
+            // Avanço de Passos Baseados em Variáveis
+            if (state.checklist === 3 && state.levels.tnq002Branca > 40) {
+                completeStep(3);
+                unlockStep(4);
+                addLog('TNQ-002 estabilizado em nível seguro para operação.', 'success');
+            }
+            
+            if (state.checklist === 4 && state.bba[12] && state.bba[55] && state.diluicao > 0 && state.bba[56]) {
+                completeStep(4);
+                ui.statusBadge.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> OPERAÇÃO NORMAL`;
+                ui.statusBadge.classList.replace('text-sky-400', 'text-emerald-400');
+                ui.statusBadge.classList.replace('bg-sky-500/10', 'bg-emerald-500/10');
+                ui.statusBadge.classList.replace('border-sky-500/30', 'border-emerald-500/30');
+            }
+
+        }, 100);
+
+        // --- RESET GERAL ---
+        window.resetSimulation = function() {
+            state.vacQ = 0; state.vacA = 0; state.diluicao = 0;
+            state.bba = { 231: false, 12: false, 223: { on: false, mode: 'MANUAL' }, 14: false, 55: false, 56: false };
+            state.valves.descarte = false;
+            state.levels = { tnq015: 50, tnq002Branca: 0, tnq002Exc: 0 };
+            state.checklist = 1;
+            state.vacuumStabilizing = false;
+            
+            syncSliders('vac-q', 0);
+            syncSliders('vac-a', 0);
+            syncSliders('diluicao', 0);
+            
+            document.getElementById('valve-descarte').setAttribute('fill', '#ef4444');
+            const lblDescarte = document.getElementById('lbl-descarte');
+            lblDescarte.innerHTML = 'DRENO (FECHADO)'; lblDescarte.setAttribute('fill', '#ef4444');
+            document.getElementById('pipe-descarte').classList.add('hidden');
+            
+            document.getElementById('badge-223').setAttribute('fill', '#ef4444');
+            document.getElementById('txt-bba-223-mode').innerHTML = 'MANUAL';
+            
+            ui.log.innerHTML = '<p class="text-slate-500">&gt; Sistema Reiniciado. Siga as etapas descritas no Checklist de Partida.</p>';
+            dismissError();
+            
+            // Reset ui cards
+            for(let i=1; i<=4; i++) {
+                const card = document.getElementById(`step-${i}`);
+                if (i===1) unlockStep(1);
+                else {
+                    card.classList.add('opacity-45', 'pointer-events-none');
+                    card.classList.remove('border-sky-500/50', 'bg-sky-950/10', 'border-emerald-500/50', 'bg-emerald-950/20');
+                    card.classList.add('border-slate-900', 'bg-slate-950/40');
+                    document.getElementById(`bar-${i}`).className = 'absolute left-0 top-0 w-1.5 h-full bg-slate-800';
+                    document.getElementById(`status-${i}`).className = "text-[9px] font-black text-slate-500 bg-slate-800/50 px-2.5 py-0.5 rounded-full uppercase tracking-wider";
+                    document.getElementById(`status-${i}`).innerText = "Aguardando";
+                }
+            }
+            updateLeds();
+        }
+
+    </script>
+</body>
+</html>

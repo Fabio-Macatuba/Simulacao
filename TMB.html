@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supervisório Industrial - Planta de Massa</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Ubuntu:wght@400;500;700&display=swap');
+        
+        .font-mono-digital {
+            font-family: 'Share Tech Mono', monospace;
+        }
+        
+        body {
+            font-family: 'Ubuntu', sans-serif;
+        }
+
+        /* Animações de fluxo de tubulação */
+        @keyframes flowLeftToRight {
+            0% { stroke-dashoffset: 24; }
+            100% { stroke-dashoffset: 0; }
+        }
+        
+        .pipe-flow {
+            stroke-dasharray: 8, 4;
+            animation: flowLeftToRight 1s linear infinite;
+        }
+        
+        .pipe-flow-fast {
+            stroke-dasharray: 6, 3;
+            animation: flowLeftToRight 0.5s linear infinite;
+        }
+
+        /* Rolagem suave e customizada para o console */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #020617;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col select-none">
+
+    <!-- HEADER DO SUPERVISÓRIO -->
+    <header class="bg-slate-900 border-b border-slate-800 p-4 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="bg-blue-600 p-2.5 rounded-lg text-white animate-pulse">
+                <i class="fa-solid fa-industry text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-wider uppercase text-blue-400">SISTEMA SUPERVISÓRIO - PLANTA DE MASSA</h1>
+                <p class="text-xs text-slate-400">Controle de Preparação de Massa Branca & Depuração (Legenda: Vermelho = Parado, Verde = Ligado)</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4 w-full sm:w-auto justify-end">
+            <div class="bg-slate-950 px-4 py-2 rounded-md border border-slate-800 text-right">
+                <div class="text-xs text-slate-500 uppercase font-semibold">Comunicação CLP</div>
+                <div class="text-sm font-bold text-green-400 flex items-center justify-end gap-1.5">
+                    <span class="h-2 w-2 rounded-full bg-green-500 animate-ping"></span>
+                    CONECTADO (OK)
+                </div>
+            </div>
+            <button onclick="resetPlanta()" class="bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold px-4 py-2 rounded-md shadow-md transition flex items-center gap-2">
+                <i class="fa-solid fa-rotate-left"></i> RESET GERAL
+            </button>
+        </div>
+    </header>
+
+    <!-- ÁREA PRINCIPAL -->
+    <main class="flex-1 p-4 grid grid-cols-1 xl:grid-cols-4 gap-4 overflow-hidden">
+        
+        <!-- COLUNA ESQUERDA: DIAGRAMA SINÓTICO (Ocupa 3 colunas) -->
+        <div class="xl:col-span-3 flex flex-col space-y-4">
+            
+            <!-- TELA DO SINÓTICO -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-2xl relative flex-1 min-h-[580px] flex flex-col justify-between">
+                <!-- Cabeçalho Interno -->
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 border-b border-slate-800 pb-2 gap-2">
+                    <span class="text-sm font-bold text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-circle text-xs text-emerald-500 animate-pulse"></i> DIAGRAMA DE FLUXO DE PROCESSO (P&ID)
+                    </span>
+                    <div class="flex flex-wrap items-center gap-4 text-xs">
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-green-500 rounded-full inline-block"></span> Motor Ligado</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-600 rounded-full inline-block"></span> Motor Parado</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-blue-600 rounded-full inline-block"></span> S Ativo (Maint)</span>
+                    </div>
+                </div>
+
+                <!-- DIAGRAMA SVG RESPONSIVO COM ARQUITETURA ALINHADA AO DIAGRAMA ORIGINAL -->
+                <div class="relative w-full flex-1 flex items-center justify-center bg-slate-950 rounded-lg p-2 overflow-auto border border-slate-800">
+                    <svg viewBox="0 0 1100 620" class="w-full max-w-[1100px] h-auto text-slate-300">
+                        <defs>
+                            <marker id="arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#3b82f6" />
+                            </marker>
+                            <marker id="arrow-orange" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#f97316" />
+                            </marker>
+                        </defs>
+
+                        <!-- TUBULAÇÕES DE PROCESSO (LINHAS DO PROCESSO) -->
+                        <!-- Linha de Entrada Superior (Azul - Água de BBA.012 para EGS.001) -->
+                        <path d="M 100,80 L 760,80" fill="none" stroke="#1e293b" stroke-width="7"/>
+                        <path id="pipe-bba012-egs" d="M 100,80 L 760,80" fill="none" stroke="#334155" stroke-width="5"/>
+                        <path id="flow-bba012-egs" d="M 100,80 L 760,80" fill="none" stroke="#3b82f6" stroke-width="3" class="pipe-flow hidden"/>
+
+                        <!-- Derivação FC-001 para TMB-001 (Primeiro ramo vertical, vai para o topo da torre) -->
+                        <path d="M 200,80 L 200,320 L 180,320" fill="none" stroke="#334155" stroke-width="5" marker-end="url(#arrow-blue)"/>
+                        <path id="flow-bba012-tmb" d="M 200,80 L 200,320 L 180,320" fill="none" stroke="#3b82f6" stroke-width="3" class="pipe-flow hidden"/>
+
+                        <!-- Derivação CC-001 (Linha desceu um pouco e vai até a sucção da bomba BBA.002B em y=530) -->
+                        <path d="M 310,80 L 310,530" fill="none" stroke="#334155" stroke-width="5"/>
+                        <path id="flow-cc001-retorno" d="M 310,80 L 310,530" fill="none" stroke="#3b82f6" stroke-width="3" class="pipe-flow hidden"/>
+
+                        <!-- Linha de Sucção das Bombas BBA.002A/B a partir da TMB-001 -->
+                        <!-- Conexões de Saída do Tanque unidas por um coletor vertical - Corrigido para a mesma cor laranja de sucção de massa (#f97316) -->
+                        <path d="M 180,410 L 220,410" fill="none" stroke="#f97316" stroke-width="5" />
+                        <path d="M 180,530 L 220,530" fill="none" stroke="#f97316" stroke-width="5" />
+                        <path d="M 220,410 L 220,530" fill="none" stroke="#f97316" stroke-width="5" />
+                        
+                        <!-- Sucção Superior A (Passa por XV-001A) -->
+                        <path d="M 220,410 L 390,410" fill="none" stroke="#f97316" stroke-width="5" marker-end="url(#arrow-orange)"/>
+                        <!-- Sucção Inferior B (Passa por XV-001B) -->
+                        <path d="M 220,530 L 390,530" fill="none" stroke="#f97316" stroke-width="5" marker-end="url(#arrow-orange)"/>
+
+                        <!-- Linhas laranja animadas de fluxo de sucção -->
+                        <path id="flow-tmb-bba002a" d="M 220,410 L 390,410" fill="none" stroke="#fdba74" stroke-width="3" class="pipe-flow hidden" stroke-linecap="round" />
+                        <path id="flow-tmb-bba002b" d="M 220,530 L 390,530" fill="none" stroke="#fdba74" stroke-width="3" class="pipe-flow hidden" stroke-linecap="round" />
+
+                        <!-- Linha de Recalque (Saída das bombas BBA.002A/B) -->
+                        <path d="M 410,410 L 500,410 L 500,470" fill="none" stroke="#475569" stroke-width="5" />
+                        <path d="M 410,530 L 500,530 L 500,470" fill="none" stroke="#475569" stroke-width="5" />
+                        <path d="M 500,470 L 530,470" fill="none" stroke="#475569" stroke-width="5" />
+                        
+                        <!-- Linha vertical comum de recalque passando por XV-002 -->
+                        <path d="M 530,470 L 530,260" fill="none" stroke="#475569" stroke-width="5" />
+                        
+                        <!-- Fluxos Animados das Saídas das Bombas -->
+                        <path id="flow-bba002a-out" d="M 410,410 L 500,410 L 500,470" fill="none" stroke="#f97316" stroke-width="3" class="pipe-flow hidden" />
+                        <path id="flow-bba002b-out" d="M 410,530 L 500,530 L 500,470" fill="none" stroke="#f97316" stroke-width="3" class="pipe-flow hidden" />
+                        <path id="flow-post-pump" d="M 500,470 L 530,470 L 530,260" fill="none" stroke="#f97316" stroke-width="3" class="pipe-flow hidden"/>
+
+                        <!-- Ramificação de Destino Pós-Válvula XV-002: -->
+                        <!-- 1. Subida para o Engrossador EGS.001 (Passando por LV-002B) -->
+                        <path d="M 530,260 L 530,140 L 760,140" fill="none" stroke="#475569" stroke-width="5" marker-end="url(#arrow-orange)"/>
+                        <path id="flow-to-egs" d="M 530,260 L 530,140 L 760,140" fill="none" stroke="#f97316" stroke-width="3" class="pipe-flow hidden"/>
+
+                        <!-- 2. Linha Indo para o TNQ-001 (Passando por LV-002A) -->
+                        <path d="M 530,260 L 810,260 L 810,380" fill="none" stroke="#475569" stroke-width="5" marker-end="url(#arrow-orange)"/>
+                        <path id="flow-to-tnq" d="M 530,260 L 810,260 L 810,380" fill="none" stroke="#f97316" stroke-width="3" class="pipe-flow hidden"/>
+
+                        <!-- Linha de Descarga do Engrossador EGS para TNQ-001 (Fibras Grossas) -->
+                        <path d="M 840,165 L 840,380" fill="none" stroke="#f97316" stroke-width="5" marker-end="url(#arrow-orange)"/>
+                        <path id="flow-egs-descarga" d="M 840,165 L 840,380" fill="none" stroke="#ea580c" stroke-width="3" class="pipe-flow hidden"/>
+
+                        <!-- Linha de Água Filtrada do Engrossador para Tanque de Água Branca -->
+                        <path d="M 910,165 L 910,240" fill="none" stroke="#3b82f6" stroke-width="4" marker-end="url(#arrow-blue)"/>
+                        <path id="flow-egs-filtrado" d="M 910,165 L 910,240" fill="none" stroke="#60a5fa" stroke-width="2" class="pipe-flow hidden"/>
+
+                        <!-- EQUIPAMENTO: TORRE DE MASSA BRANCA (TMB-001) -->
+                        <g id="eq-tmb" class="cursor-pointer" onclick="selecionarEquipamento('TMB-001')">
+                            <!-- Corpo Principal -->
+                            <rect x="40" y="250" width="140" height="280" rx="20" fill="#1e3a8a" stroke="#3b82f6" stroke-width="4"/>
+                            <!-- Preenchimento Fluido Interno Dinâmico -->
+                            <rect id="tmb-fluid" x="42" y="252" width="136" height="276" rx="18" fill="#1e40af" opacity="0.6" />
+                            <!-- Tampa Superior Abaulada -->
+                            <path d="M 40,260 C 40,220 180,220 180,260 Z" fill="#1d4ed8" stroke="#3b82f6" stroke-width="4"/>
+                            <!-- Divisão Interna -->
+                            <line x1="40" y1="390" x2="180" y2="390" stroke="#3b82f6" stroke-width="2" stroke-dasharray="4"/>
+                            
+                            <!-- Indicador de Nível TMB (Dinâmico) -->
+                            <rect x="42" y="270" width="10" height="240" fill="#0f172a" rx="2"/>
+                            <rect id="visual-level-tmb" x="42" y="438" width="10" height="72" fill="#eab308" rx="2"/>
+
+                            <!-- Textos Informativos -->
+                            <text x="110" y="290" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="bold">TORRE DE</text>
+                            <text x="110" y="310" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="bold">MASSA BRANCA</text>
+                            <text x="110" y="335" text-anchor="middle" fill="#93c5fd" font-size="14" font-weight="bold">TMB-001</text>
+                            
+                            <!-- Indicador LI-001 -->
+                            <rect x="60" y="420" width="70" height="40" fill="#0f172a" stroke="#475569" stroke-width="2" rx="4"/>
+                            <text x="95" y="435" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="bold">LI-001</text>
+                            <text id="txt-li001" x="95" y="453" text-anchor="middle" fill="#eab308" font-size="13" class="font-mono-digital font-bold">30.0 %</text>
+                        </g>
+
+                        <!-- EQUIPAMENTO: AGITADOR AGT.001 -->
+                        <g id="eq-agt001" class="cursor-pointer" onclick="toggleAgt001()">
+                            <rect x="180" y="480" width="35" height="40" fill="#ef4444" stroke="#ffffff" stroke-width="2" id="box-agt001" rx="4"/>
+                            <path d="M 160,490 L 180,500 L 160,510 Z" fill="#475569" id="blade-agt001"/>
+                            <text x="197" y="535" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">AGT.001</text>
+                        </g>
+
+                        <!-- BOMBA: BBA.012 -->
+                        <g id="eq-bba012" class="cursor-pointer" onclick="toggleBba012()">
+                            <circle cx="100" cy="80" r="25" fill="#ef4444" stroke="#ffffff" stroke-width="2" id="circle-bba012"/>
+                            <path d="M 90,80 L 110,80 M 100,70 L 100,90" stroke="#ffffff" stroke-width="3"/>
+                            <text x="100" y="125" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">BBA.012</text>
+                        </g>
+
+                        <!-- VÁLVULA HORIZONTAL: HC-007 (Linha Superior) -->
+                        <g id="eq-hc007" class="cursor-pointer" onclick="selecionarEquipamento('HC-007')">
+                            <polygon points="370,70 370,90 395,80" fill="#475569" stroke="#ffffff" stroke-width="1.5" id="valv-hc007-l"/>
+                            <polygon points="420,70 420,90 395,80" fill="#475569" stroke="#ffffff" stroke-width="1.5" id="valv-hc007-r"/>
+                            <circle cx="395" cy="80" r="9" fill="#475569" stroke="#ffffff" stroke-width="1.5" id="valv-hc007-c"/>
+                            <text x="395" y="55" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">HC-007</text>
+                            <text id="txt-valv-hc007" x="395" y="115" text-anchor="middle" fill="#cbd5e1" font-size="11" class="font-bold">0%</text>
+                        </g>
+
+                        <!-- VÁLVULA VERTICAL: FC-001 (Primeira derivação vertical) -->
+                        <g id="eq-fc001" class="cursor-pointer" onclick="selecionarEquipamento('FC-001')">
+                            <polygon points="190,140 210,140 200,155" fill="#475569" stroke="#ffffff" stroke-width="1.5" id="valv-fc001-t"/>
+                            <polygon points="190,170 210,170 200,155" fill="#475569" stroke="#ffffff" stroke-width="1.5" id="valv-fc001-b"/>
+                            <circle cx="200" cy="155" r="7" fill="#475569" stroke="#ffffff" id="valv-fc001-c"/>
+                            <line x1="200" y1="148" x2="235" y2="148" stroke="#94a3b8" stroke-dasharray="2"/>
+                            
+                            <text x="250" y="140" text-anchor="start" fill="#ffffff" font-size="11" font-weight="bold">FC-001</text>
+                            <text id="txt-valv-fc001-flow" x="250" y="155" text-anchor="start" fill="#38bdf8" font-size="11" class="font-mono-digital font-bold">0 m³/h M</text>
+                            <text id="txt-valv-fc001-pct" x="250" y="170" text-anchor="start" fill="#e2e8f0" font-size="11">0%</text>
+                        </g>
+
+                        <!-- VÁLVULA VERTICAL: CC-001 (Abaixada ainda mais visualmente para evitar conflito de linhas) -->
+                        <g id="eq-cc001" class="cursor-pointer" transform="translate(0, 75)" onclick="selecionarEquipamento('CC-001')">
+                            <polygon points="300,140 320,140 310,155" fill="#475569" stroke="#ffffff" stroke-width="1.5" id="valv-cc001-t"/>
+                            <polygon points="300,170 320,170 310,155" fill="#475569" stroke="#ffffff" stroke-width="1.5" id="valv-cc001-b"/>
+                            <circle cx="310" cy="155" r="7" fill="#475569" stroke="#ffffff" id="valv-cc001-c"/>
+                            
+                            <text x="340" y="140" text-anchor="start" fill="#ffffff" font-size="11" font-weight="bold">CC-001</text>
+                            <text id="txt-cc001-pct" x="340" y="155" text-anchor="start" fill="#34d399" font-size="11" class="font-mono-digital font-bold">4.15% A</text>
+                            <text id="txt-cc001-sp" x="340" y="170" text-anchor="start" fill="#94a3b8" font-size="11">SP 4.3%</text>
+                            <!-- EXIBIÇÃO DE % DE ABERTURA CC-001 -->
+                            <text id="txt-valv-cc001-pct" x="340" y="185" text-anchor="start" fill="#cbd5e1" font-size="11" class="font-bold">Abertura: 0%</text>
+                        </g>
+
+                        <!-- VÁLVULA HORIZONTAL: XV-001A (Linha de Sucção superior da BBA.002A) -->
+                        <g id="eq-xv001a" class="cursor-pointer" onclick="toggleXv001a()">
+                            <circle cx="270" cy="410" r="16" fill="#fef08a" stroke="#eab308" stroke-width="2" id="circle-xv001a"/>
+                            <text x="270" y="414" text-anchor="middle" fill="#0f172a" font-size="11" font-weight="bold" id="txt-mode-xv001a">A</text>
+                            <text x="270" y="380" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">XV-001A</text>
+                            <rect x="260" y="335" width="20" height="20" fill="#3b82f6" id="status-box-xv001a" rx="3" class="transition-colors duration-300"/>
+                            <text x="270" y="349" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold" id="status-txt-xv001a">S</text>
+                        </g>
+
+                        <!-- VÁLVULA HORIZONTAL: XV-001B (Linha de Sucção inferior da BBA.002B) -->
+                        <g id="eq-xv001b" class="cursor-pointer" onclick="toggleXv001b()">
+                            <circle cx="270" cy="530" r="16" fill="#fef08a" stroke="#eab308" stroke-width="2" id="circle-xv001b"/>
+                            <text x="270" y="534" text-anchor="middle" fill="#0f172a" font-size="11" font-weight="bold" id="txt-mode-xv001b">A</text>
+                            <text x="270" y="570" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">XV-001B</text>
+                            <rect x="260" y="580" width="20" height="20" fill="#3b82f6" id="status-box-xv001b" rx="3" class="transition-colors duration-300"/>
+                            <text x="270" y="594" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold" id="status-txt-xv001b">S</text>
+                        </g>
+
+                        <!-- BOMBA: BBA.002A -->
+                        <g id="eq-bba002a" class="cursor-pointer" onclick="toggleBba002a()">
+                            <circle cx="390" cy="410" r="22" fill="#ef4444" stroke="#ffffff" stroke-width="2" id="circle-bba002a"/>
+                            <path d="M 382,410 L 398,410 M 390,402 L 390,418" stroke="#ffffff" stroke-width="2.5"/>
+                            <text x="390" y="375" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">BBA.002A</text>
+                            <rect x="330" y="335" width="20" height="20" fill="#3b82f6" id="status-box-bba002a" rx="3" class="transition-colors duration-300"/>
+                            <text x="340" y="349" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold" id="status-txt-bba002a">S</text>
+                        </g>
+
+                        <!-- BOMBA: BBA.002B -->
+                        <g id="eq-bba002b" class="cursor-pointer" onclick="toggleBba002b()">
+                            <circle cx="390" cy="530" r="22" fill="#ef4444" stroke="#ffffff" stroke-width="2" id="circle-bba002b"/>
+                            <path d="M 382,530 L 398,530 M 390,522 L 390,538" stroke="#ffffff" stroke-width="2.5"/>
+                            <text x="390" y="575" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">BBA.002B</text>
+                            <rect x="330" y="580" width="20" height="20" fill="#3b82f6" id="status-box-bba002b" rx="3" class="transition-colors duration-300"/>
+                            <text x="340" y="594" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold" id="status-txt-bba002b">S</text>
+                        </g>
+
+                        <!-- MEDIDOR DE FLUXO GERAL: FT-002 -->
+                        <g id="instrument-ft002">
+                            <rect x="580" y="440" width="100" height="40" fill="#0f172a" stroke="#475569" stroke-width="2" rx="4"/>
+                            <text x="630" y="455" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="bold">FT-002</text>
+                            <text id="txt-ft002-flow" x="630" y="473" text-anchor="middle" fill="#ef4444" font-size="12" class="font-mono-digital font-bold">0 m³/h</text>
+                        </g>
+
+                        <!-- VÁLVULA VERTICAL: XV-002 (Recalque vertical) -->
+                        <g id="eq-xv002" class="cursor-pointer" onclick="selecionarEquipamento('XV-002')">
+                            <polygon points="520,325 540,325 530,340" fill="#22c55e" stroke="#ffffff" stroke-width="1.5" id="valv-xv002-t"/>
+                            <polygon points="520,355 540,355 530,340" fill="#22c55e" stroke="#ffffff" stroke-width="1.5" id="valv-xv002-b"/>
+                            <circle cx="530" cy="340" r="7" fill="#22c55e" stroke="#ffffff" id="valv-xv002-c"/>
+                            
+                            <text x="560" y="335" text-anchor="start" fill="#ffffff" font-size="11" font-weight="bold">XV-002</text>
+                            <text id="txt-xv002-desc" x="560" y="350" text-anchor="start" fill="#e2e8f0" font-size="11" class="font-bold">65% A</text>
+                        </g>
+
+                        <!-- VÁLVULA HORIZONTAL: LV-002A (Indo para o Tanque TNQ-001) -->
+                        <g id="eq-lv002a" class="cursor-pointer" onclick="selecionarEquipamento('LV-002A')">
+                            <polygon points="625,250 625,270 650,260" fill="#22c55e" stroke="#ffffff" stroke-width="1.5" id="valv-lv002a-l"/>
+                            <polygon points="675,250 675,270 650,260" fill="#22c55e" stroke="#ffffff" stroke-width="1.5" id="valv-lv002a-r"/>
+                            <circle cx="650" cy="260" r="7" fill="#22c55e" stroke="#ffffff" id="valv-lv002a-c"/>
+                            
+                            <text x="650" y="235" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">LV-002A</text>
+                            <text id="txt-lv002a-desc" x="650" y="295" text-anchor="middle" fill="#cbd5e1" font-size="11" class="font-bold">15% A</text>
+                        </g>
+
+                        <!-- VÁLVULA VERTICAL: LV-002B (Subida vertical para o Engrossador) -->
+                        <g id="eq-lv002b" class="cursor-pointer" onclick="selecionarEquipamento('LV-002B')">
+                            <polygon points="520,165 540,165 530,180" fill="#22c55e" stroke="#ffffff" stroke-width="1.5" id="valv-lv002b-t"/>
+                            <polygon points="520,195 540,195 530,180" fill="#22c55e" stroke="#ffffff" stroke-width="1.5" id="valv-lv002b-b"/>
+                            <circle cx="530" cy="180" r="7" fill="#22c55e" stroke="#ffffff" id="valv-lv002b-c"/>
+                            
+                            <text x="450" y="175" text-anchor="start" fill="#ffffff" font-size="11" font-weight="bold">LV-002B</text>
+                            <text id="txt-lv002b-desc" x="450" y="190" text-anchor="start" fill="#cbd5e1" font-size="11" class="font-bold">65% M</text>
+                        </g>
+
+                        <!-- EQUIPAMENTO: ENGROSSADOR (EGS.001) -->
+                        <g id="eq-egs" class="cursor-pointer" onclick="toggleEgs()">
+                            <polygon points="760,70 920,70 920,160 840,200 760,160" fill="#1e3a8a" stroke="#3b82f6" stroke-width="4"/>
+                            <rect x="920" y="90" width="30" height="50" fill="#ef4444" stroke="#ffffff" stroke-width="2" id="motor-egs" rx="4"/>
+                            
+                            <text x="840" y="110" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="bold">ENGROSSADOR</text>
+                            <text x="955" y="155" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">EGS.001</text>
+                        </g>
+
+                        <!-- EQUIPAMENTO: TANQUE DE MASSA NÃO DEPURADA (TNQ-001) -->
+                        <g id="eq-tnq001" class="cursor-pointer" onclick="selecionarEquipamento('TNQ-001')">
+                            <rect x="710" y="380" width="220" height="150" fill="#1e3a8a" stroke="#3b82f6" stroke-width="4" rx="4"/>
+                            
+                            <!-- Indicador de Nível Lateral -->
+                            <rect x="712" y="390" width="10" height="130" fill="#0f172a" rx="2"/>
+                            <rect id="visual-level-tnq" x="712" y="442" width="10" height="78" fill="#eab308" rx="2"/>
+
+                            <text x="820" y="430" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">TNQ-001</text>
+                            <text x="820" y="455" text-anchor="middle" fill="#93c5fd" font-size="13" font-weight="bold">TANQUE DE MASSA</text>
+                            <text x="820" y="475" text-anchor="middle" fill="#93c5fd" font-size="13" font-weight="bold">NÃO DEPURADA</text>
+                            <text id="tnq-level-txt" x="820" y="510" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold" class="font-mono-digital">60%</text>
+                        </g>
+
+                        <!-- BOMBA: BBA.004 -->
+                        <g id="eq-bba004" class="cursor-pointer" onclick="toggleBba004()">
+                            <circle cx="990" cy="510" r="25" fill="#ef4444" stroke="#ffffff" stroke-width="2" id="circle-bba004"/>
+                            <path d="M 980,510 L 1000,510 M 990,500 L 990,520" stroke="#ffffff" stroke-width="3"/>
+                            <path d="M 930,510 L 965,510" fill="none" stroke="#475569" stroke-width="5"/>
+                            <text x="990" y="555" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">BBA.004</text>
+                        </g>
+
+                        <!-- EQUIPAMENTO COLETOR: TANQUE DE ÁGUA BRANCA -->
+                        <g>
+                            <rect x="850" y="270" width="150" height="50" fill="#0f172a" stroke="#475569" stroke-width="2" rx="4"/>
+                            <text x="925" y="292" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">TANQUE DE</text>
+                            <text x="925" y="310" text-anchor="middle" fill="#38bdf8" font-size="11" font-weight="bold">ÁGUA BRANCA</text>
+                        </g>
+
+                        <!-- CAIXA DE AUTOMÁTICO SELETOR DE ATUAÇÃO (Quadrado de Modo de Controle) -->
+                        <g id="control-mode-box" class="cursor-pointer" onclick="toggleSeletorModoGlobal()">
+                            <rect x="530" y="520" width="140" height="60" fill="#1e40af" stroke="#3b82f6" stroke-width="3" rx="6" id="box-modo-global"/>
+                            
+                            <!-- Botão de cima: Alterna modo de operação entre AUTOMÁTICO e MANUAL -->
+                            <rect x="535" y="525" width="130" height="23" fill="#1d4ed8" rx="4" class="hover:fill-blue-700 transition" onclick="toggleModoOpGlobal(event)"/>
+                            <text id="txt-modo-op-global" x="600" y="541" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold" class="pointer-events-none">AUTOMÁTICO</text>
+                            
+                            <!-- Botão de baixo: Alterna válvula controlada entre LV-002A e LV-002B -->
+                            <rect x="535" y="552" width="130" height="23" fill="#1e3a8a" rx="4" class="hover:fill-blue-900 transition" onclick="toggleSeletorVaporizacao(event)"/>
+                            <text id="txt-modo-global-sub" x="600" y="568" text-anchor="middle" fill="#67e8f9" font-size="12" font-weight="bold" class="pointer-events-none">LV-002A</text>
+                        </g>
+                    </svg>
+                </div>
+
+                <!-- Barra de Rodapé com Controles de Teste Rápidos -->
+                <div class="mt-2 p-3 bg-slate-950 rounded-lg flex flex-col md:flex-row gap-4 items-center justify-between text-xs border border-slate-800">
+                    <span class="text-blue-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                        <i class="fa-solid fa-gamepad"></i> Simulação Dinâmica de Níveis:
+                    </span>
+                    <div class="flex flex-wrap items-center gap-6">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <span>Torre (LI-001)</span>
+                            <input type="range" min="0" max="100" value="30" id="sim-tmb" oninput="ajustarNivelSimulacao('tmb', this.value)" class="h-1.5 w-28 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                            <span class="font-mono text-blue-400 font-bold" id="sim-tmb-val">30%</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <span>Depurado (TNQ)</span>
+                            <input type="range" min="0" max="100" value="60" id="sim-tnq" oninput="ajustarNivelSimulacao('tnq', this.value)" class="h-1.5 w-28 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                            <span class="font-mono text-blue-400 font-bold" id="sim-tnq-val">60%</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLUNA DIREITA: AJUSTE DE PARÂMETROS / DETALHES DE EQUIPAMENTOS (Ocupa 1 coluna) -->
+        <div class="flex flex-col space-y-4">
+            
+            <!-- PAINEL DE CONTROLE DETALHADO -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl flex flex-col space-y-4 h-full justify-between">
+                <div class="space-y-4">
+                    <div class="border-b border-slate-800 pb-2">
+                        <h2 class="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-blue-500"></i> Ajuste do Dispositivo
+                        </h2>
+                    </div>
+
+                    <!-- Sem seleção padrão -->
+                    <div id="painel-vazio" class="text-center py-10 text-slate-500">
+                        <i class="fa-solid fa-hand-pointer text-4xl mb-3 block animate-bounce"></i>
+                        <p class="text-xs">Selecione uma válvula ou tanque no diagrama para controlar seus parâmetros em detalhe.</p>
+                    </div>
+
+                    <!-- Painel de Controle Dinâmico de Equipamentos (Ativado por clique) -->
+                    <div id="painel-equipamento" class="hidden flex flex-col space-y-4">
+                        <div class="flex justify-between items-center bg-slate-950 p-2.5 rounded border border-slate-800">
+                            <span id="eq-nome" class="font-bold text-base text-blue-400">FC-001</span>
+                            <span id="eq-tag" class="text-xs font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-400">Válvula de Controle</span>
+                        </div>
+
+                        <!-- Modo de Operação (Man / Auto) -->
+                        <div id="ctrl-modo" class="flex flex-col space-y-1.5">
+                            <label class="text-xs text-slate-400 font-semibold uppercase">Modo de Operação</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button id="btn-modo-man" onclick="setModoEquipamento('M')" class="py-2 text-xs font-bold rounded border transition-colors bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700">
+                                    MANUAL
+                                </button>
+                                <button id="btn-modo-auto" onclick="setModoEquipamento('A')" class="py-2 text-xs font-bold rounded border transition-colors bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700">
+                                    AUTOMÁTICO
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Slider para válvulas analógicas -->
+                        <div id="ctrl-abertura" class="flex flex-col space-y-1.5">
+                            <div class="flex justify-between text-xs text-slate-400 font-semibold uppercase">
+                                <span>Abertura Solicitada</span>
+                                <span id="lbl-abertura-val" class="text-blue-400 font-bold">35%</span>
+                            </div>
+                            <input id="range-abertura" type="range" min="0" max="100" class="w-full accent-blue-500 cursor-pointer h-2 bg-slate-950 rounded-lg" oninput="setAberturaEquipamento(this.value)">
+                            <p class="text-[10px] text-slate-500 italic">Arraste para alterar o positioning da válvula em modo MANUAL.</p>
+                        </div>
+
+                        <!-- Controle On/Off para motores e tanques -->
+                        <div id="ctrl-digital" class="hidden flex flex-col space-y-2">
+                            <label class="text-xs text-slate-400 font-semibold uppercase">Comando de Partida</label>
+                            <button id="btn-cmd-digital" class="py-3 text-sm font-bold text-white rounded transition-colors w-full" onclick="executarComandoDigital()">
+                                LIGAR EQUIPAMENTO
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CONSOLE DE EVENTOS E INTERTRAVAMENTOS -->
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 flex flex-col h-48">
+                    <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1.5 flex justify-between">
+                        <span>Console de Diagnósticos</span>
+                        <span class="text-green-500"><i class="fa-solid fa-terminal mr-1"></i> Ativo</span>
+                    </div>
+                    <div id="log-container" class="flex-1 overflow-y-auto text-xs font-mono space-y-1 text-emerald-400 pr-1">
+                        <div>[12:27:00] Sistema supervisório ativo.</div>
+                        <div>[12:27:01] CLP configurado com sucesso.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- FOOTER COM AS REGRAS RÁPIDAS -->
+    <footer class="p-4 bg-slate-900 border-t border-slate-800 text-slate-400 text-xs flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div class="flex flex-wrap gap-x-4 gap-y-1 items-center">
+            <span class="text-amber-500 font-bold"><i class="fas fa-exclamation-triangle mr-1"></i> LÓGICA DE OPERAÇÃO:</span>
+            <span>CC-001 entra obrigatoriamente a 100% em modo MANUAL ao partir BBA-002A/B.</span>
+            <span>FC-001 e CC-001 são bloqueadas se BBA.002A e B estiverem paradas.</span>
+        </div>
+        <div class="text-right text-[10px] text-slate-500">Planta Digital de Processos v3.2</div>
+    </footer>
+
+    <!-- LÓGICA DE SUPERVISÃO E INTERTRAVAMENTOS CLP -->
+    <script>
+        // Estado inicial do processo
+        const state = {
+            tmbLevel: 30,          // LI-001 (%)
+            tnqLevel: 60,          // LV-002 (%)
+            fc001Opening: 0,       // % abertura da válvula de fluxo (Inicia em 0% - bloqueada)
+            cc001Opening: 0,       // % abertura da válvula de consistência (Inicia em 0% - bloqueada)
+            xv002Opening: 65,      // % abertura da válvula de retorno
+            lv002aOpening: 15,     // % abertura da válvula LV-002A
+            lv002bOpening: 65,     // % abertura da válvula LV-002B
+            hc007Opening: 0,       // % abertura da válvula de bloqueio superior (Inicia em 0%)
+            
+            pumps: {
+                bba012: false,     // Bomba de Alimentação
+                agt001: false,     // Agitador do TMB-001
+                bba002a: false,    // Bomba Principal A
+                bba002b: false,    // Bomba Principal B
+                bba004: false,     // Bomba de Saída do TNQ
+                egs001: false      // Engrossador
+            },
+
+            // Modos de Operação (M = Manual, A = Automático)
+            modes: {
+                fc001: 'M',
+                cc001: 'M',        // Inicia em Manual por padrão
+                xv002: 'A',
+                lv002a: 'A',
+                lv002b: 'M',
+                hc007: 'A',
+                global: 'A'        // Modo de controle global (A = Automático, M = Manual)
+            },
+
+            // Modos de manutenção / Segurança "S" (true = travado em azul/bloqueado, false = livre)
+            safety: {
+                xv001a: true,
+                xv001b: true,
+                bba002a: true,
+                bba002b: true
+            },
+
+            seletorGlobalModo: 'LV-002A', // Seleciona qual válvula opera em AUTO (A ou B)
+            selecionado: null            // ID do equipamento selecionado no momento
+        };
+
+        // Função de Logs no Console
+        function logMsg(msg, tipo = 'info') {
+            const container = document.getElementById('log-container');
+            if (!container) return;
+            const time = new Date().toLocaleTimeString();
+            let color = 'text-sky-400';
+            if (tipo === 'err') color = 'text-red-500 font-bold';
+            if (tipo === 'warn') color = 'text-yellow-500';
+            if (tipo === 'ok') color = 'text-emerald-400';
+
+            const div = document.createElement('div');
+            div.className = color;
+            div.innerHTML = `[${time}] ${msg}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Seleção de Dispositivos e Tanques
+        function selecionarEquipamento(tag) {
+            state.selecionado = tag;
+            
+            const painelVazio = document.getElementById('painel-vazio');
+            const painelEq = document.getElementById('painel-equipamento');
+            
+            painelVazio.classList.add('hidden');
+            painelEq.classList.remove('hidden');
+
+            document.getElementById('eq-nome').textContent = tag;
+            
+            // Ajustar visualização do painel conforme o tipo de tag
+            const ctrlAbertura = document.getElementById('ctrl-abertura');
+            const ctrlModo = document.getElementById('ctrl-modo');
+            const ctrlDigital = document.getElementById('ctrl-digital');
+
+            if (['FC-001', 'CC-001', 'XV-002', 'LV-002A', 'LV-002B', 'HC-007'].includes(tag)) {
+                // Equipamentos Analógicos
+                ctrlAbertura.classList.remove('hidden');
+                ctrlModo.classList.remove('hidden');
+                ctrlDigital.classList.add('hidden');
+
+                // Carregar valores correntes
+                let val = 0;
+                let modo = 'M';
+                if (tag === 'FC-001') { val = state.fc001Opening; modo = state.modes.fc001; }
+                if (tag === 'CC-001') { val = state.cc001Opening; modo = state.modes.cc001; }
+                if (tag === 'XV-002') { val = state.xv002Opening; modo = state.modes.xv002; }
+                if (tag === 'LV-002A') { val = state.lv002aOpening; modo = state.modes.lv002a; }
+                if (tag === 'LV-002B') { val = state.lv002bOpening; modo = state.modes.lv002b; }
+                if (tag === 'HC-007') { val = state.hc007Opening; modo = state.modes.hc007; }
+
+                document.getElementById('range-abertura').value = val;
+                document.getElementById('lbl-abertura-val').textContent = val + '%';
+                document.getElementById('eq-tag').textContent = 'Válvula de Controle';
+                
+                atualizarBotoesModo(modo);
+            } else if (tag === 'TMB-001' || tag === 'TNQ-001') {
+                // Tanques (Apenas mostram nível e não tem comando On/Off)
+                ctrlAbertura.classList.add('hidden');
+                ctrlModo.classList.add('hidden');
+                ctrlDigital.classList.add('hidden');
+                document.getElementById('eq-tag').textContent = 'Reservatório Industrial';
+            }
+        }
+
+        // Atualizar estilos dos botões de modo de operação no painel lateral
+        function atualizarBotoesModo(modo) {
+            const btnMan = document.getElementById('btn-modo-man');
+            const btnAuto = document.getElementById('btn-modo-auto');
+
+            if (modo === 'M') {
+                btnMan.className = "py-2 text-xs font-bold rounded border transition-colors bg-blue-600 border-blue-500 text-white";
+                btnAuto.className = "py-2 text-xs font-bold rounded border transition-colors bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700";
+            } else {
+                btnMan.className = "py-2 text-xs font-bold rounded border transition-colors bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700";
+                btnAuto.className = "py-2 text-xs font-bold rounded border transition-colors bg-blue-600 border-blue-500 text-white";
+            }
+        }
+
+        // Define modo de operação da válvula selecionada
+        function setModoEquipamento(modo) {
+            if (!state.selecionado) return;
+            const tag = state.selecionado;
+
+            // REGRA: LV-002A e B são gerenciadas exclusivamente pelo Seletor Global de Atuação (não muda manual/auto na lateral)
+            if (['LV-002A', 'LV-002B'].includes(tag)) {
+                logMsg(`Bloqueado: O controle de modo de ${tag} é gerenciado apenas pelo quadrado de controle global (seletor).`, 'warn');
+                return;
+            }
+
+            // REGRA: XV-002 exige EXATAMENTE 30% de abertura para permitir transição para AUTOMÁTICO
+            if (tag === 'XV-002' && modo === 'A') {
+                if (state.xv002Opening !== 30) {
+                    logMsg(`FALHA: Transição de XV-002 para AUTOMÁTICO impedida. Abertura atual é ${state.xv002Opening}%, mas deve ser exatamente 30%.`, 'err');
+                    return;
+                }
+            }
+
+            if (tag === 'FC-001') state.modes.fc001 = modo;
+            if (tag === 'CC-001') state.modes.cc001 = modo;
+            if (tag === 'XV-002') state.modes.xv002 = modo;
+            if (tag === 'HC-007') state.modes.hc007 = modo;
+
+            logMsg(`${tag} alterado para modo ${modo === 'M' ? 'MANUAL' : 'AUTOMÁTICO'}.`, 'ok');
+            atualizarBotoesModo(modo);
+            atualizarVisuals();
+        }
+
+        // Define abertura da válvula selecionada pelo Slider
+        function setAberturaEquipamento(val) {
+            if (!state.selecionado) return;
+            const tag = state.selecionado;
+            const abertura = parseInt(val);
+
+            // REGRA: Se a válvula estiver no modo AUTOMÁTICO, não pode liberar a alteração de abertura manual!
+            let currentMode = 'M';
+            if (tag === 'FC-001') currentMode = state.modes.fc001;
+            if (tag === 'CC-001') currentMode = state.modes.cc001;
+            if (tag === 'XV-002') currentMode = state.modes.xv002;
+            if (tag === 'LV-002A') currentMode = state.modes.lv002a;
+            if (tag === 'LV-002B') currentMode = state.modes.lv002b;
+            if (tag === 'HC-007') currentMode = state.modes.hc007;
+
+            if (currentMode === 'A') {
+                logMsg(`Bloqueado: Não é permitido ajustar a abertura de ${tag} manualmente em modo AUTOMÁTICO.`, 'warn');
+                reverterSlider(tag);
+                return;
+            }
+
+            // REGRA DE INTERTRAVAMENTO: FC-001 e CC-001 só abrem se a bomba BBA.002A ou BBA.002B estiver ligada (e não apenas BBA.012)
+            if (['FC-001', 'CC-001'].includes(tag)) {
+                if (!state.pumps.bba002a && !state.pumps.bba002b) {
+                    logMsg(`Bloqueado: ${tag} só pode ser aberta se BBA.002A ou BBA.002B estiver LIGADA!`, 'err');
+                    reverterSlider(tag);
+                    return;
+                }
+            }
+
+            document.getElementById('lbl-abertura-val').textContent = abertura + '%';
+
+            if (tag === 'FC-001') {
+                state.fc001Opening = abertura;
+            } else if (tag === 'CC-001') {
+                state.cc001Opening = abertura;
+            } else if (tag === 'XV-002') {
+                state.xv002Opening = abertura;
+            } else if (tag === 'LV-002A') {
+                state.lv002aOpening = abertura;
+            } else if (tag === 'LV-002B') {
+                state.lv002bOpening = abertura;
+            } else if (tag === 'HC-007') {
+                state.hc007Opening = abertura;
+            }
+
+            atualizarVisuals();
+        }
+
+        // Auxiliar para restaurar valor anterior no slider se intertravado
+        function reverterSlider(tag) {
+            let currentVal = 0;
+            if (tag === 'FC-001') currentVal = state.fc001Opening;
+            if (tag === 'CC-001') currentVal = state.cc001Opening;
+            if (tag === 'XV-002') currentVal = state.xv002Opening;
+            if (tag === 'LV-002A') currentVal = state.lv002aOpening;
+            if (tag === 'LV-002B') currentVal = state.lv002bOpening;
+            if (tag === 'HC-007') currentVal = state.hc007Opening;
+            
+            document.getElementById('range-abertura').value = currentVal;
+            document.getElementById('lbl-abertura-val').textContent = currentVal + '%';
+        }
+
+        // Alterna segurança "S" (Manutenção) das Válvulas XV e Bombas BBA
+        function toggleXv001a() {
+            state.safety.xv001a = !state.safety.xv001a;
+            if (state.safety.xv001a) {
+                logMsg('Segurança XV-001A Ativada (Sinal azul). Bloqueando acionamento da válvula.', 'warn');
+            } else {
+                logMsg('Segurança XV-001A Liberada. Válvula em modo automático de operação.', 'ok');
+            }
+            atualizarVisuals();
+        }
+
+        function toggleXv001b() {
+            state.safety.xv001b = !state.safety.xv001b;
+            if (state.safety.xv001b) {
+                logMsg('Segurança XV-001B Ativada (Sinal azul). Bloqueando acionamento da válvula.', 'warn');
+            } else {
+                logMsg('Segurança XV-001B Liberada. Válvula em modo automático de operação.', 'ok');
+            }
+            atualizarVisuals();
+        }
+
+        // Comando manual de motores de Bombas
+        function toggleBba012() {
+            if (state.pumps.bba012) {
+                state.pumps.bba012 = false;
+                state.hc007Opening = 0;
+                state.pumps.egs001 = false;
+                logMsg('BBA.012 desligada. HC-007 bloqueada automaticamente em 0%.', 'info');
+            } else {
+                state.pumps.bba012 = true;
+                logMsg('BBA.012 ligada com sucesso. HC-007 aguardando partida do Engrossador.', 'info');
+            }
+            atualizarVisuals();
+        }
+
+        // Liga/Desliga o Agitador TMB-001
+        function toggleAgt001() {
+            if (state.pumps.agt001) {
+                state.pumps.agt001 = false;
+                logMsg('Agitador AGT.001 parado manualmente.', 'info');
+                // Desliga bombas principais caso agitador pare
+                if (state.pumps.bba002a) { desligarBombasRecalque(); logMsg('BBA.002A desligada por intertravamento do agitador.', 'err'); }
+                if (state.pumps.bba002b) { desligarBombasRecalque(); logMsg('BBA.002B desligada por intertravamento do agitador.', 'err'); }
+            } else {
+                if (state.tmbLevel > 10) {
+                    state.pumps.agt001 = true;
+                    logMsg('Agitador AGT.001 em operação normal de mistura.', 'ok');
+                } else {
+                    logMsg('FALHA DE INTERTRAVAMENTO: AGT.001 exige nível LI-001 > 10% para partir.', 'err');
+                }
+            }
+            atualizarVisuals();
+        }
+
+        // Desligamento seguro das bombas e fechamento automático de CC e FC
+        function desligarBombasRecalque() {
+            state.pumps.bba002a = false;
+            state.pumps.bba002b = false;
+            state.fc001Opening = 0;
+            state.cc001Opening = 0;
+            logMsg('CLP: CC-001 e FC-001 fechadas automaticamente (recalque parado).', 'warn');
+        }
+
+        // Ativa bomba BBA.002A (Verifica os intertravamentos rigorosos do sistema)
+        function toggleBba002a() {
+            // Se clicar no botão S (azul), desativa o intertravamento físico
+            if (event.target.id === 'status-box-bba002a' || event.target.id === 'status-txt-bba002a') {
+                state.safety.bba002a = !state.safety.bba002a;
+                logMsg(`Segurança de Manutenção BBA.002A alterada para ${state.safety.bba002a ? 'BLOQUEADA' : 'LIBERADA'}.`, 'warn');
+                if (state.safety.bba002a && state.pumps.bba002a) desligarBombasRecalque();
+                atualizarVisuals();
+                return;
+            }
+
+            if (state.pumps.bba002a) {
+                state.pumps.bba002a = false;
+                if (!state.pumps.bba002b) desligarBombasRecalque();
+                logMsg('BBA.002A desligada manualmente.', 'info');
+            } else {
+                // REGRA DE SEGURANÇA: BBA.002A só liga se BBA.002B estiver parada
+                if (state.pumps.bba002b) {
+                    logMsg('FALHA DE INTERTRAVAMENTO: BBA.002A não pode partir enquanto BBA.002B estiver ligada!', 'err');
+                    return;
+                }
+                // Verificação de Intertravamentos
+                if (state.safety.bba002a) {
+                    logMsg('FALHA: Bloqueada pelo intertravamento S de Manutenção (azul) na BBA.002A!', 'err');
+                    return;
+                }
+                if (state.safety.xv001a) {
+                    logMsg('FALHA: Bloqueada pelo intertravamento S de Manutenção (azul) na Válvula XV-001A!', 'err');
+                    return;
+                }
+                if (state.tmbLevel <= 10) {
+                    logMsg('FALHA: Nível da torre (LI-001) menor ou igual a 10%!', 'err');
+                    return;
+                }
+                if (!state.pumps.agt001) {
+                    logMsg('FALHA: O Agitador AGT.001 precisa estar LIGADO para bombear a massa!', 'err');
+                    return;
+                }
+                if (state.tnqLevel >= 85) {
+                    logMsg('FALHA: Destino cheio! Nível do TNQ-001 maior ou igual a 85%.', 'err');
+                    return;
+                }
+                if (!state.pumps.egs001) {
+                    logMsg('FALHA: O Engrossador EGS.001 precisa estar LIGADO!', 'err');
+                    return;
+                }
+
+                // Partida bem sucedida
+                state.pumps.bba002a = true;
+                logMsg('BBA.002A ligada com sucesso. Iniciando recirculação e descarga.', 'ok');
+                aplicarLogicaInicialPartida();
+            }
+            atualizarVisuals();
+        }
+
+        // Ativa bomba BBA.002B
+        function toggleBba002b() {
+            if (event.target.id === 'status-box-bba002b' || event.target.id === 'status-txt-bba002b') {
+                state.safety.bba002b = !state.safety.bba002b;
+                logMsg(`Segurança de Manutenção BBA.002B alterada para ${state.safety.bba002b ? 'BLOQUEADA' : 'LIBERADA'}.`, 'warn');
+                if (state.safety.bba002b && state.pumps.bba002b) desligarBombasRecalque();
+                atualizarVisuals();
+                return;
+            }
+
+            if (state.pumps.bba002b) {
+                state.pumps.bba002b = false;
+                if (!state.pumps.bba002a) desligarBombasRecalque();
+                logMsg('BBA.002B desligada manualmente.', 'info');
+            } else {
+                // REGRA DE SEGURANÇA: BBA.002B só liga se BBA.002A estiver parada
+                if (state.pumps.bba002a) {
+                    logMsg('FALHA DE INTERTRAVAMENTO: BBA.002B não pode partir enquanto BBA.002A estiver ligada!', 'err');
+                    return;
+                }
+                if (state.safety.bba002b) {
+                    logMsg('FALHA: Bloqueada pelo intertravamento S de Manutenção (azul) na BBA.002B!', 'err');
+                    return;
+                }
+                if (state.safety.xv001b) {
+                    logMsg('FALHA: Bloqueada pelo intertravamento S de Manutenção (azul) na Válvula XV-001B!', 'err');
+                    return;
+                }
+                if (state.tmbLevel <= 10) {
+                    logMsg('FALHA: Nível da torre (LI-001) menor ou igual a 10%!', 'err');
+                    return;
+                }
+                if (!state.pumps.agt001) {
+                    logMsg('FALHA: O Agitador AGT.001 precisa estar LIGADO para bombear a massa!', 'err');
+                    return;
+                }
+                if (state.tnqLevel >= 85) {
+                    logMsg('FALHA: Destino cheio! Nível do TNQ-001 maior ou igual a 85%.', 'err');
+                    return;
+                }
+                if (!state.pumps.egs001) {
+                    logMsg('FALHA: O Engrossador EGS.001 precisa estar LIGADO!', 'err');
+                    return;
+                }
+
+                state.pumps.bba002b = true;
+                logMsg('BBA.002B ligada com sucesso.', 'ok');
+                aplicarLogicaInicialPartida();
+            }
+            atualizarVisuals();
+        }
+
+        // Lógica de partida automática
+        function aplicarLogicaInicialPartida() {
+            // XV-002 abre em 30% e entra em automático
+            state.xv002Opening = 30;
+            state.modes.xv002 = 'A';
+            logMsg('XV-002 aberta em 30% em modo AUTOMÁTICO.', 'ok');
+
+            // FC-001 abre em 30% e entra em manual (vazão de descarga permitida pois a bomba ligou)
+            state.fc001Opening = 30;
+            state.modes.fc001 = 'M';
+            logMsg('FC-001 aberta em 30% em modo MANUAL.', 'ok');
+
+            // CC-001 abre em 100% e PERMANECE EM MANUAL (Alterado sob demanda)
+            state.cc001Opening = 100;
+            state.modes.cc001 = 'M';
+            logMsg('CC-001 aberta em 100% e RETIDA EM MODO MANUAL.', 'ok');
+        }
+
+        // Ligar / Desligar Engrossador manualmente
+        function toggleEgs() {
+            if (state.pumps.egs001) {
+                state.pumps.egs001 = false;
+                state.hc007Opening = 0; // HC-007 retorna a 0% se engrossador desligar
+                logMsg('Engrossador EGS.001 parado manualmente. Válvula HC-007 retornou a 0%.', 'info');
+                if (state.pumps.bba002a || state.pumps.bba002b) { 
+                    desligarBombasRecalque(); 
+                    logMsg('Bombas de recalque desligadas por intertravamento de segurança do Engrossador.', 'err'); 
+                }
+            } else {
+                if (state.pumps.bba012) {
+                    state.pumps.egs001 = true;
+                    state.hc007Opening = 100; // HC-007 vai para 100% quando liga o engrossador
+                    logMsg('Engrossador EGS.001 em operação. Válvula HC-007 aberta em 100%.', 'ok');
+                } else {
+                    logMsg('FALHA DE INTERTRAVAMENTO: BBA.012 precisa estar ligada para iniciar o Engrossador EGS.001.', 'err');
+                }
+            }
+            atualizarVisuals();
+        }
+
+        // Controle da bomba de saída BBA.004
+        function toggleBba004() {
+            if (state.pumps.bba004) {
+                state.pumps.bba004 = false;
+                logMsg('BBA.004 desligada manualmente.', 'info');
+            } else {
+                if (state.tnqLevel > 10) {
+                    state.pumps.bba004 = true;
+                    logMsg('BBA.004 ligada. Descarregando massa depurada.', 'ok');
+                } else {
+                    logMsg('FALHA DE INTERTRAVAMENTO: Nível do Tanque TNQ-001 precisa estar acima de 10% para ligar a BBA.004.', 'err');
+                }
+            }
+            atualizarVisuals();
+        }
+
+        // Botão de cima do quadrado: Alterna o modo de operação Global entre AUTOMÁTICO e MANUAL
+        function toggleModoOpGlobal(event) {
+            if (event) event.stopPropagation(); // Evita dupla ativação
+            
+            if (state.modes.global === 'A') {
+                state.modes.global = 'M';
+                document.getElementById('txt-modo-op-global').textContent = 'MANUAL';
+                document.getElementById('box-modo-global').setAttribute('fill', '#475569'); // Cor cinza para modo Manual
+                
+                // Se o quadrado vai para MANUAL, as duas válvulas LV ficam em MANUAL
+                state.modes.lv002a = 'M';
+                state.modes.lv002b = 'M';
+                logMsg('Supervisão Global em MANUAL: LV-002A e LV-002B alteradas para MANUAL.', 'warn');
+            } else {
+                state.modes.global = 'A';
+                document.getElementById('txt-modo-op-global').textContent = 'AUTOMÁTICO';
+                document.getElementById('box-modo-global').setAttribute('fill', '#1e40af'); // Cor azul para modo Automático
+                
+                // Retorna à regra de seleção automática do botão de baixo
+                ajustarModosPorSeletorGlobal();
+                logMsg('Supervisão Global configurada para AUTOMÁTICO. Seletor de atuação ativo.', 'ok');
+            }
+            atualizarVisuals();
+            
+            // Sincroniza painel lateral de controle se a válvula selecionada estiver aberta nele
+            if (state.selecionado && ['LV-002A', 'LV-002B'].includes(state.selecionado)) {
+                selecionarEquipamento(state.selecionado);
+            }
+        }
+
+        // Alinha os modos individuais de LV-002A e B baseando-se no seletor global do quadrado
+        function ajustarModosPorSeletorGlobal() {
+            if (state.modes.global === 'A') {
+                if (state.seletorGlobalModo === 'LV-002A') {
+                    state.modes.lv002a = 'A';
+                    state.modes.lv002b = 'M';
+                } else {
+                    state.modes.lv002a = 'M';
+                    state.modes.lv002b = 'A';
+                }
+            }
+        }
+
+        // Botão de baixo do quadrado: Alterna seletor de válvula automática de atuação (LV-002A ou B)
+        function toggleSeletorVaporizacao(event) {
+            if (event) event.stopPropagation(); // Evita dupla ativação
+            
+            // Se o quadrado global estiver em MANUAL, esse botão fica temporariamente inativo
+            if (state.modes.global === 'M') {
+                logMsg('Aviso: Modo global está em MANUAL. O seletor de atuação automática não surtirá efeito.', 'warn');
+                return;
+            }
+            
+            const labelSub = document.getElementById('txt-modo-global-sub');
+            if (state.seletorGlobalModo === 'LV-002A') {
+                state.seletorGlobalModo = 'LV-002B';
+                if (labelSub) labelSub.textContent = 'LV-002B';
+                logMsg('Controle global de nível do Tanque transferido para LV-002B.', 'ok');
+            } else {
+                state.seletorGlobalModo = 'LV-002A';
+                if (labelSub) labelSub.textContent = 'LV-002A';
+                logMsg('Controle global de nível do Tanque transferido para LV-002A.', 'ok');
+            }
+            
+            ajustarModosPorSeletorGlobal();
+            atualizarVisuals();
+            
+            if (state.selecionado && ['LV-002A', 'LV-002B'].includes(state.selecionado)) {
+                selecionarEquipamento(state.selecionado);
+            }
+        }
+
+        // Legado de suporte ao clique na caixa externa do seletor
+        function toggleSeletorModoGlobal() {
+            toggleSeletorVaporizacao(null);
+        }
+
+        // Controle manual de simulação de nível pelo rodapé (Sincroniza com as regras)
+        function ajustarNivelSimulacao(tank, val) {
+            const nivel = parseInt(val);
+            if (tank === 'tmb') {
+                state.tmbLevel = nivel;
+                document.getElementById('sim-tmb-val').textContent = nivel + '%';
+            } else if (tank === 'tnq') {
+                state.tnqLevel = nivel;
+                document.getElementById('sim-tnq-val').textContent = nivel + '%';
+            }
+            
+            // Força a avaliação imediata de intertravamentos de nível
+            verificarIntertravamentosNivel();
+            atualizarVisuals();
+        }
+
+        // MECCANISMO CLP: Verifica rigorosamente limites de nível baixo e desliga as bombas de forma irrestrita
+        function verificarIntertravamentosNivel() {
+            // Se o nível da Torre TMB-001 cair abaixo ou igual a 10%, desliga o Agitador e as bombas de sucção
+            if (state.tmbLevel <= 10) {
+                let intertravou = false;
+                
+                if (state.pumps.agt001) {
+                    state.pumps.agt001 = false;
+                    logMsg('ALERTA CLP: Agitador AGT.001 desligado por intertravamento (Nível LI-001 <= 10%).', 'err');
+                    intertravou = true;
+                }
+                if (state.pumps.bba002a || state.pumps.bba002b) {
+                    desligarBombasRecalque();
+                    logMsg('ALERTA CLP: Bombas de recalque desligadas por intertravamento (Nível LI-001 <= 10%).', 'err');
+                    intertravou = true;
+                }
+                
+                if (intertravou) {
+                    atualizarVisuals();
+                }
+            }
+
+            // Se o nível do Tanque TNQ-001 cair abaixo ou igual a 10%, desliga a BBA.004 de saída
+            if (state.tnqLevel <= 10) {
+                if (state.pumps.bba004) {
+                    state.pumps.bba004 = false;
+                    logMsg('ALERTA CLP: BBA.004 desarmada automaticamente (Nível TNQ-001 <= 10% para prevenção de vácuo/cavitação).', 'err');
+                    atualizarVisuals();
+                }
+            }
+            
+            // Intertravamento de nível máximo no destino (TNQ-001 cheia)
+            if (state.tnqLevel >= 85) {
+                let intertravouTNQCheio = false;
+                if (state.pumps.bba002a || state.pumps.bba002b) {
+                    desligarBombasRecalque();
+                    logMsg('ALERTA CLP: Recalque de massa desligado automaticamente (Segurança de nível TNQ-001 >= 85%).', 'err');
+                    intertravouTNQCheio = true;
+                }
+                if (intertravouTNQCheio) {
+                    atualizarVisuals();
+                }
+            }
+        }
+
+        // Reset geral do processo
+        function resetPlanta() {
+            state.tmbLevel = 30;
+            state.tnqLevel = 60;
+            state.fc001Opening = 0;   // Inicia em 0 (bloqueada sem bombas)
+            state.cc001Opening = 0;   // Inicia em 0 (bloqueada sem bombas)
+            state.xv002Opening = 65;
+            state.lv002aOpening = 15;
+            state.lv002bOpening = 65;
+            state.hc007Opening = 0; // Reset inicial para 0%
+
+            state.pumps.bba012 = false;
+            state.pumps.agt001 = false;
+            state.pumps.bba002a = false;
+            state.pumps.bba002b = false;
+            state.pumps.bba004 = false;
+            state.pumps.egs001 = false;
+
+            state.modes.fc001 = 'M';
+            state.modes.cc001 = 'M'; // Reset padrão para Manual
+            state.modes.xv002 = 'A';
+            state.modes.lv002a = 'A';
+            state.modes.lv002b = 'M';
+            state.modes.global = 'A';
+
+            state.safety.xv001a = true;
+            state.safety.xv001b = true;
+            state.safety.bba002a = true;
+            state.safety.bba002b = true;
+
+            state.seletorGlobalModo = 'LV-002A';
+            
+            const seletorTxt = document.getElementById('txt-modo-global-sub');
+            if (seletorTxt) seletorTxt.textContent = 'LV-002A';
+
+            const modoOpTxt = document.getElementById('txt-modo-op-global');
+            if (modoOpTxt) modoOpTxt.textContent = 'AUTOMÁTICO';
+
+            const boxModoGlb = document.getElementById('box-modo-global');
+            if (boxModoGlb) boxModoGlb.setAttribute('fill', '#1e40af');
+
+            const simTmb = document.getElementById('sim-tmb');
+            if (simTmb) simTmb.value = 30;
+            
+            const simTmbVal = document.getElementById('sim-tmb-val');
+            if (simTmbVal) simTmbVal.textContent = '30%';
+
+            const simTnq = document.getElementById('sim-tnq');
+            if (simTnq) simTnq.value = 60;
+
+            const simTnqVal = document.getElementById('sim-tnq-val');
+            if (simTnqVal) simTnqVal.textContent = '60%';
+
+            logMsg('Reset completo efetuado. Válvulas CC-001 e FC-001 fechadas (aguardando partida do recalque).', 'warn');
+            
+            if (state.selecionado) selecionarEquipamento(state.selecionado);
+            atualizarVisuals();
+        }
+
+        // RENDERIZAÇÃO E ATUALIZAÇÃO DOS SINAIS VISUAIS DO PROCESSO
+        function atualizarVisuals() {
+            // Função auxiliar para evitar erros de elemento ausente no DOM
+            const setAttrSafe = (id, attr, value) => {
+                const el = document.getElementById(id);
+                if (el) el.setAttribute(attr, value);
+            };
+            const setTextSafe = (id, text) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = text;
+            };
+
+            // 1. Estados visuais dos Motores e Bombas (Vermelho = Parado, Verde = Ligado)
+            setAttrSafe('circle-bba012', 'fill', state.pumps.bba012 ? '#22c55e' : '#ef4444');
+            setAttrSafe('box-agt001', 'fill', state.pumps.agt001 ? '#22c55e' : '#ef4444');
+            setAttrSafe('circle-bba002a', 'fill', state.pumps.bba002a ? '#22c55e' : '#ef4444');
+            setAttrSafe('circle-bba002b', 'fill', state.pumps.bba002b ? '#22c55e' : '#ef4444');
+            setAttrSafe('circle-bba004', 'fill', state.pumps.bba004 ? '#22c55e' : '#ef4444');
+            setAttrSafe('motor-egs', 'fill', state.pumps.egs001 ? '#22c55e' : '#ef4444');
+
+            // Animação de rotação do agitador
+            const blade = document.getElementById('blade-agt001');
+            if (blade) {
+                if (state.pumps.agt001) {
+                    blade.classList.add('animate-pulse');
+                    blade.setAttribute('fill', '#22c55e');
+                } else {
+                    blade.classList.remove('animate-pulse');
+                    blade.setAttribute('fill', '#475569');
+                }
+            }
+
+            // 2. Intertravamentos e Modos dos Dispositivos (Sinalizador azul se manutenção estiver ativa)
+            setAttrSafe('status-box-bba002a', 'fill', state.safety.bba002a ? '#2563eb' : '#0f172a');
+            setAttrSafe('status-box-bba002b', 'fill', state.safety.bba002b ? '#2563eb' : '#0f172a');
+            setAttrSafe('status-box-xv001a', 'fill', state.safety.xv001a ? '#2563eb' : '#0f172a');
+            setAttrSafe('status-box-xv001b', 'fill', state.safety.xv001b ? '#2563eb' : '#0f172a');
+
+            setTextSafe('txt-mode-xv001a', state.safety.xv001a ? 'M' : 'A');
+            setAttrSafe('circle-xv001a', 'fill', state.safety.xv001a ? '#3b82f6' : '#eab308');
+            setTextSafe('txt-mode-xv001b', state.safety.xv001b ? 'M' : 'A');
+            setAttrSafe('circle-xv001b', 'fill', state.safety.xv001b ? '#3b82f6' : '#eab308');
+
+            // 3. Cálculos Dinâmicos de Consistência e Vazão do Processo
+            let consistency = 4.15;
+            let consistencyHigh = false;
+
+            if (state.pumps.bba002a || state.pumps.bba002b) {
+                // Modelo de processo: quanto mais FC-001 aberta, maior a consistência de entrada.
+                // CC-001 atua injetando água de diluição para reduzir a consistência.
+                let baseConsistency = 5.5 + (state.fc001Opening / 100) * 2.0;
+                consistency = Math.max(1.0, baseConsistency - (state.cc001Opening / 100) * 3.5);
+
+                if (consistency > 4.8) {
+                    consistencyHigh = true;
+                }
+            }
+
+            // Vazão medida em FT-002 com base na XV-002
+            let flowValue = 0;
+            if (state.pumps.bba002a || state.pumps.bba002b) {
+                if (consistencyHigh) {
+                    flowValue = 200; // Reduz para 200m³/h em consistência alta
+                } else {
+                    // Linear: 30% abertura = 200 m³/h; 100% abertura = 850 m³/h
+                    if (state.xv002Opening >= 30) {
+                        flowValue = Math.round(200 + ((state.xv002Opening - 30) / 70) * 650);
+                    } else {
+                        flowValue = Math.round((state.xv002Opening / 30) * 200);
+                    }
+                }
+            }
+
+            // Atualiza Textos de Instrumentação na Tela SVG
+            setTextSafe('txt-cc001-pct', `${consistency.toFixed(2)}% ${state.modes.cc001}`);
+            setAttrSafe('txt-cc001-pct', 'fill', consistencyHigh ? '#ef4444' : '#34d399');
+            setTextSafe('txt-cc001-sp', 'SP 4.3%');
+            // % DE ABERTURA DA VÁLVULA DE CONSISTÊNCIA
+            setTextSafe('txt-valv-cc001-pct', `Abertura: ${state.cc001Opening}%`);
+
+            setTextSafe('txt-ft002-flow', `${flowValue} m³/h`);
+            setAttrSafe('txt-ft002-flow', 'fill', flowValue > 0 ? '#22c55e' : '#ef4444');
+
+            setTextSafe('txt-valv-hc007', `${state.hc007Opening}%`);
+            setTextSafe('txt-valv-fc001-pct', `${state.fc001Opening}%`);
+            setTextSafe('txt-valv-fc001-flow', `${Math.round((state.fc001Opening / 35) * 200)} m³/h ${state.modes.fc001}`);
+            setTextSafe('txt-xv002-desc', `${state.xv002Opening}% ${state.modes.xv002}`);
+
+            // TEXTOS DAS VÁLVULAS DE RETORNO E PROCESSO
+            setTextSafe('txt-lv002a-desc', `${state.lv002aOpening}% ${state.modes.lv002a}`);
+            setTextSafe('txt-lv002b-desc', `${state.lv002bOpening}% ${state.modes.lv002b}`);
+
+            // Controle dinâmico das cores/estados das válvulas na linha de fluxo ativo
+            const setValveColor = (valveId, statusOn) => {
+                const elT = document.getElementById(`valv-${valveId}-t`);
+                const elB = document.getElementById(`valv-${valveId}-b`);
+                const elC = document.getElementById(`valv-${valveId}-c`);
+                const elL = document.getElementById(`valv-${valveId}-l`);
+                const elR = document.getElementById(`valv-${valveId}-r`);
+                
+                const activeColor = '#22c55e'; // Verde
+                const inactiveColor = '#475569'; // Cinza Escuro
+
+                if (elT) elT.setAttribute('fill', statusOn ? activeColor : inactiveColor);
+                if (elB) elB.setAttribute('fill', statusOn ? activeColor : inactiveColor);
+                if (elC) elC.setAttribute('fill', statusOn ? activeColor : inactiveColor);
+                if (elL) elL.setAttribute('fill', statusOn ? activeColor : inactiveColor);
+                if (elR) elR.setAttribute('fill', statusOn ? activeColor : inactiveColor);
+            };
+
+            // REGRA: FC-001 e CC-001 reagem visualmente com base no funcionamento da BBA.002A ou B, e não da BBA.012
+            const recalqueAtivo = (state.pumps.bba002a || state.pumps.bba002b);
+            setValveColor('fc001', recalqueAtivo && state.fc001Opening > 0);
+            setValveColor('cc001', recalqueAtivo && state.cc001Opening > 0);
+            setValveColor('hc007', state.pumps.bba012 && state.hc007Opening > 0);
+            
+            setValveColor('xv002', recalqueAtivo && state.xv002Opening > 0);
+            setValveColor('lv002a', recalqueAtivo && state.lv002aOpening > 0);
+            setValveColor('lv002b', recalqueAtivo && state.lv002bOpening > 0);
+
+            // 4. Fluxo e Cores nas Tubulações (Ativo/Inativo)
+            const toggleFlow = (id, condition) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    if (condition) el.classList.remove('hidden');
+                    else el.classList.add('hidden');
+                }
+            };
+
+            toggleFlow('flow-bba012-egs', state.pumps.bba012);
+            
+            // REGRA: Fluxo passando pelas derivações FC-001 e CC-001 só se ativa quando a BBA.002A ou B está ligada
+            toggleFlow('flow-bba012-tmb', recalqueAtivo && state.fc001Opening > 0);
+            toggleFlow('flow-cc001-retorno', recalqueAtivo && state.cc001Opening > 0);
+            
+            // Fluxos de sucção
+            toggleFlow('flow-tmb-bba002a', state.pumps.bba002a && state.tmbLevel > 10);
+            toggleFlow('flow-tmb-bba002b', state.pumps.bba002b && state.tmbLevel > 10);
+
+            // Fluxos de recalque
+            toggleFlow('flow-bba002a-out', state.pumps.bba002a);
+            toggleFlow('flow-bba002b-out', state.pumps.bba002b);
+            toggleFlow('flow-post-pump', recalqueAtivo && state.xv002Opening > 0);
+            
+            // Destinos após recirculação
+            const hasPumpFlow = recalqueAtivo && state.xv002Opening > 0;
+            toggleFlow('flow-to-egs', hasPumpFlow && state.lv002bOpening > 0);
+            toggleFlow('flow-to-tnq', hasPumpFlow && state.lv002aOpening > 0);
+            
+            // Saídas do Engrossador
+            toggleFlow('flow-egs-descarga', state.pumps.egs001);
+            toggleFlow('flow-egs-filtrado', state.pumps.egs001);
+
+            // 5. Atualização Gráfica dos Níveis de Tanque no SVG
+            // Torre TMB-001
+            setTextSafe('txt-li001', `${state.tmbLevel.toFixed(1)} %`);
+            
+            const visualTmb = document.getElementById('visual-level-tmb');
+            if (visualTmb) {
+                const visualHeightTmb = (state.tmbLevel / 100) * 240;
+                visualTmb.setAttribute('height', visualHeightTmb);
+                visualTmb.setAttribute('y', 510 - visualHeightTmb); // Base de y=510
+            }
+
+            // Ajuste do preenchimento fluido interno do TMB-001
+            const fluidTmb = document.getElementById('tmb-fluid');
+            if (fluidTmb) {
+                const fluidHeightTmb = (state.tmbLevel / 100) * 250;
+                fluidTmb.setAttribute('height', fluidHeightTmb);
+                fluidTmb.setAttribute('y', 525 - fluidHeightTmb); // Começa na base do tanque
+            }
+
+            // Tanque TNQ-001
+            const visualTnq = document.getElementById('visual-level-tnq');
+            if (visualTnq) {
+                const visualHeightTnq = (state.tnqLevel / 100) * 130;
+                visualTnq.setAttribute('height', visualHeightTnq);
+                visualTnq.setAttribute('y', 520 - visualHeightTnq); // Base de y=520
+            }
+            
+            setTextSafe('tnq-level-txt', `${Math.round(state.tnqLevel)}%`);
+
+            // SINCRONIZAÇÃO COMPLETA DO PAINEL LATERAL EM TEMPO REAL
+            if (state.selecionado) {
+                const tag = state.selecionado;
+                let val = 0;
+                let modo = 'M';
+                if (tag === 'FC-001') { val = state.fc001Opening; modo = state.modes.fc001; }
+                if (tag === 'CC-001') { val = state.cc001Opening; modo = state.modes.cc001; }
+                if (tag === 'XV-002') { val = state.xv002Opening; modo = state.modes.xv002; }
+                if (tag === 'LV-002A') { val = state.lv002aOpening; modo = state.modes.lv002a; }
+                if (tag === 'LV-002B') { val = state.lv002bOpening; modo = state.modes.lv002b; }
+                if (tag === 'HC-007') { val = state.hc007Opening; modo = state.modes.hc007; }
+
+                const rangeAbertura = document.getElementById('range-abertura');
+                const lblAberturaVal = document.getElementById('lbl-abertura-val');
+                if (rangeAbertura && lblAberturaVal && ['FC-001', 'CC-001', 'XV-002', 'LV-002A', 'LV-002B', 'HC-007'].includes(tag)) {
+                    rangeAbertura.value = val;
+                    lblAberturaVal.textContent = val + '%';
+                    atualizarBotoesModo(modo);
+                }
+            }
+        }
+
+        // EXECUÇÃO EM LOOP TEMPO REAL (Mecanismo físico do simulador)
+        window.onload = function() {
+            resetPlanta();
+
+            // Ciclo de processamento dinâmico de tempo real
+            setInterval(() => {
+                let alterado = false;
+
+                // 1. Entrada de massa por BBA.012 para TMB-001 se FC-001 aberta
+                if (state.pumps.bba012 && state.fc001Opening > 0 && state.tmbLevel < 100) {
+                    state.tmbLevel = Math.min(100, state.tmbLevel + (state.fc001Opening / 100) * 0.5);
+                    alterado = true;
+                }
+
+                // 2. Descarga por BBA.002A ou B para o TNQ-001
+                if ((state.pumps.bba002a || state.pumps.bba002b) && state.tmbLevel > 0) {
+                    // Esvazia TMB
+                    state.tmbLevel = Math.max(0, state.tmbLevel - 0.4);
+                    
+                    // Enche o tanque TNQ dependendo do fluxo real de vazão de alimentação
+                    if (state.tnqLevel < 100) {
+                        const baseRate = state.fc001Opening < 30 || state.cc001Opening < 30 ? 0.2 : 0.6;
+                        // Contribuição da vazão direta de LV-002A e indireta de LV-002B (via engrossador se ligado)
+                        let fatorA = state.lv002aOpening / 100;
+                        let fatorB = state.pumps.egs001 ? (state.lv002bOpening / 100) : 0;
+                        let vazaoTotal = (fatorA * 0.8) + (fatorB * 0.5);
+                        state.tnqLevel = Math.min(100, state.tnqLevel + baseRate * vazaoTotal * 2.5);
+                    }
+                    alterado = true;
+                }
+
+                // 3. Esvaziamento do tanque TNQ por BBA.004
+                if (state.pumps.bba004 && state.tnqLevel > 0) {
+                    state.tnqLevel = Math.max(0, state.tnqLevel - 0.5);
+                    alterado = true;
+                }
+
+                // 4. MALHA DE CONTROLE DE CONSISTÊNCIA AUTOMÁTICA (CC-001)
+                // Se CC-001 estiver em AUTOMÁTICO e houver bombeamento de massa ativo
+                if (state.modes.cc001 === 'A' && (state.pumps.bba002a || state.pumps.bba002b)) {
+                    const targetSP = 4.3; // Setpoint físico estável de consistência
+                    
+                    // Mede a consistência corrente: vazão de polpa aumenta a consistência, CC-001 dilui
+                    let baseConsistency = 5.5 + (state.fc001Opening / 100) * 2.0;
+                    let currentConsistency = baseConsistency - (state.cc001Opening / 100) * 3.5;
+                    
+                    let erro = currentConsistency - targetSP; // Erro positivo = massa muito grossa (precisa de diluição)
+                    
+                    // Algoritmo de correção proporcional dinâmico do CLP
+                    let kp = 15; 
+                    let passoAjuste = erro * kp;
+                    
+                    let novaAbertura = Math.max(0, Math.min(100, Math.round(state.cc001Opening + passoAjuste)));
+                    
+                    if (state.cc001Opening !== novaAbertura) {
+                        state.cc001Opening = novaAbertura;
+                        alterado = true;
+                    }
+                }
+
+                // 5. CLP: MALHAS DE CONTROLE PROPORCIONAL DE NÍVEL (SetPoint de Nível: 60%)
+                const targetSP = 60;
+                
+                // Se a LV-002A estiver em AUTOMÁTICO, ela controla o nível do TNQ-001
+                if (state.modes.lv002a === 'A') {
+                    let erro = targetSP - state.tnqLevel;
+                    let calculo = 50 + (erro * 2.5); // Ação reversa proporcional
+                    state.lv002aOpening = Math.max(0, Math.min(100, Math.round(calculo)));
+                    alterado = true;
+                }
+                
+                // Se a LV-002B estiver em AUTOMÁTICO, ela controla o nível do TNQ-001
+                if (state.modes.lv002b === 'A') {
+                    let erro = targetSP - state.tnqLevel;
+                    let calculo = 50 + (erro * 2.5); // Ação reversa proporcional
+                    state.lv002bOpening = Math.max(0, Math.min(100, Math.round(calculo)));
+                    alterado = true;
+                }
+
+                // Executa a checagem dinâmica e instantânea do CLP sobre os limites de intertravamentos de nível
+                verificarIntertravamentosNivel();
+
+                if (alterado) {
+                    // Sincronizar Sliders de controle na tela
+                    document.getElementById('sim-tmb').value = Math.round(state.tmbLevel);
+                    document.getElementById('sim-tmb-val').textContent = Math.round(state.tmbLevel) + '%';
+                    document.getElementById('sim-tnq').value = Math.round(state.tnqLevel);
+                    document.getElementById('sim-tnq-val').textContent = Math.round(state.tnqLevel) + '%';
+                    
+                    atualizarVisuals();
+                }
+            }, 1000);
+        };
+    </script>
+</body>
+</html>

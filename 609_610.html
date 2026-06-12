@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prensa Sapata SCADA</title>
+    
+    <!-- Importação do Tailwind CSS para os estilos visuais -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Importação do React e ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- Babel para compilar o código JSX em tempo real no navegador -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+
+    <!-- Em vez do <canvas>, o React usa esta div como container principal -->
+    <div id="meuApp"></div>
+
+    <!-- O atributo type="text/babel" é essencial para o navegador ler o React -->
+    <script type="text/babel">
+        
+        // Substitui os imports do topo do arquivo React
+        const { useState, useEffect, useRef } = React;
+
+        // --- Constantes de Simulação ---
+        const LOOP_INTERVAL = 100; // ms
+        const TICKS_PER_SEC = 1000 / LOOP_INTERVAL;
+        const K_P = 0.3; // Ganho Proporcional do PID
+        const K_FLOW_EFFICIENT = 0.0775; // Fator ajustado: 80% CV resulta em 6.2 kPa
+
+        // Componente Principal
+        function App() {
+          // --- Estados do Sistema ---
+          const [systemP, setSystemP] = useState(6.2);
+          const [shoePressOn, setShoePressOn] = useState(true);
+          const [disturbance, setDisturbance] = useState(0); // Para simular vazamento
+          
+          // Estado dos Ventiladores
+          const [fans, setFans] = useState({
+            609: { id: 609, on: true, mode: 'A', motorMode: 'A', sp: 6.2, cv: 80.0, timer4k: 0, lastAutoStart: false, selectedTarget: 'sp', manutencao: false, manuallyTurnedOff: false },
+            610: { id: 610, on: false, mode: 'A', motorMode: 'A', sp: 6.2, cv: 0, timer4k: 0, lastAutoStart: false, selectedTarget: 'sp', manutencao: false, manuallyTurnedOff: false }
+          });
+
+          const isRecovering = useRef(false);
+          const recoveryTimer = useRef(0);
+
+          // --- Motor de Simulação (Lógica PID e Automação) ---
+          useEffect(() => {
+            const interval = setInterval(() => {
+              setFans(prevFans => {
+                let newFans = { ...prevFans };
+                let newFans609 = { ...newFans[609] };
+                let newFans610 = { ...newFans[610] };
+                
+                // 1. Lógica PID (Ajuste automático do CV)
+                [newFans609, newFans610].forEach(fan => {
+                  if (fan.on) {
+                    if (fan.mode === 'A') {
+                      const error = fan.sp - systemP;
+                      let newCv = fan.cv + (error * K_P);
+                      fan.cv = Math.max(0, Math.min(100, newCv)); 
+                    }
+                  } else {
+                    fan.cv = 0;
+                  }
+                });
+
+                // Lógica de tempo limite para a recuperação (evita loop infinito de acionamento)
+                if (systemP >= 4.5) {
+                    isRecovering.current = false;
+                    recoveryTimer.current = 0;
+                } else if (isRecovering.current) {
+                    recoveryTimer.current += 1;
+                    if (recoveryTimer.current > 5 * TICKS_PER_SEC) {
+                        isRecovering.current = false;
+                        recoveryTimer.current = 0;
+                    }
+                }
+
+                // 2. Lógica Automática (Inversão Socorro se P < 4.0)
+                if (shoePressOn && systemP < 4.0 && !isRecovering.current) {
+                  let startedMotor = false;
+                  
+                  if (newFans609.on && !newFans610.on && !newFans610.manutencao) {
+                    newFans610.on = true; 
+                    newFans610.mode = 'A'; 
+                    newFans610.cv = 50.0;  
+                    newFans610.lastAutoStart = true;
+                    newFans609.lastAutoStart = false; 
+                    startedMotor = true;
+                  } 
+                  else if (newFans610.on && !newFans609.on && !newFans609.manutencao) {
+                    newFans609.on = true; 
+                    newFans609.mode = 'A'; 
+                    newFans609.cv = 50.0;  
+                    newFans609.lastAutoStart = true;
+                    newFans610.lastAutoStart = false; 
+                    startedMotor = true;
+                  }
+                  else if (!newFans609.on && !newFans610.on) {
+                     if (newFans609.manuallyTurnedOff && !newFans610.manutencao) {
+                        newFans610.on = true;
+                        newFans610.mode = 'A';
+                        newFans610.cv = 50.0;
+                        newFans610.lastAutoStart = true;
+                        startedMotor = true;
+                     } else if (!newFans609.manutencao) {
+                        newFans609.on = true;
+                        newFans609.mode = 'A';
+                        newFans609.cv = 50.0;
+                        newFans609.lastAutoStart = true;
+                        startedMotor = true;
+                     } else if (!newFans610.manutencao) {
+                        newFans610.on = true;
+                        newFans610.mode = 'A';
+                        newFans610.cv = 50.0;
+                        newFans610.lastAutoStart = true;
+                        startedMotor = true;
+                     }
+                  }
+                  
+                  if (startedMotor) {
+                      isRecovering.current = true;
+                  }
+                }
+
+                // 3. Lógica de Desligamento Automático (quando a pressão estabiliza)
+                if (newFans609.on && newFans610.on) {
+                  if (systemP >= 5.0) {
+                     newFans609.timer4k += 1;
+                     newFans610.timer4k += 1;
+                     
+                     if (newFans609.timer4k > 5 * TICKS_PER_SEC) {
+                         if (newFans610.lastAutoStart) {
+                             newFans609.on = false;
+                             newFans609.cv = 0;
+                         } else if (newFans609.lastAutoStart) {
+                             newFans610.on = false;
+                             newFans610.cv = 0;
+                         }
+                         newFans609.timer4k = 0;
+                         newFans610.timer4k = 0;
+                     }
+                  } else {
+                     newFans609.timer4k = 0;
+                     newFans610.timer4k = 0;
+                  }
+                } else {
+                   newFans609.timer4k = 0;
+                   newFans610.timer4k = 0;
+                }
+
+                // 4. Intertravamento de Segurança (Pressão > 11kPa)
+                if (systemP > 11.0) {
+                    newFans609.on = false;
+                    newFans610.on = false;
+                    newFans609.cv = 0;
+                    newFans610.cv = 0;
+                    newFans609.mode = 'M';
+                    newFans610.mode = 'M';
+                }
+
+                newFans[609] = newFans609;
+                newFans[610] = newFans610;
+                return newFans;
+              });
+
+            }, LOOP_INTERVAL);
+
+            return () => clearInterval(interval);
+          }, [systemP, shoePressOn]);
+
+          // --- Física da Pressão ---
+          useEffect(() => {
+            const interval = setInterval(() => {
+              setSystemP(prev => {
+                const cv1 = fans[609].cv;
+                const cv2 = fans[610].cv;
+                const on1 = fans[609].on;
+                const on2 = fans[610].on;
+                
+                let targetP = 0;
+                let approachRate = 0.1;
+
+                if (on1 && on2 && cv1 >= 80 && cv2 >= 80) {
+                    const avgCv = (cv1 + cv2) / 2;
+                    
+                    if (avgCv <= 85) {
+                        targetP = 8.5 + ((avgCv - 80) / 5) * 1.0; 
+                    } else if (avgCv <= 95) {
+                        targetP = 9.5 + ((avgCv - 85) / 10) * 1.5; 
+                    } else {
+                        targetP = 11.0 + ((avgCv - 95) / 5) * 0.75; 
+                    }
+                    
+                    targetP -= disturbance;
+                    approachRate = 0.015; 
+                } else {
+                    const maxCv = Math.max(on1 ? cv1 : 0, on2 ? cv2 : 0);
+                    const minCv = Math.min(on1 ? cv1 : 0, on2 ? cv2 : 0);
+                    const effectiveCv = maxCv + (0.5 * minCv);
+                    targetP = (effectiveCv * K_FLOW_EFFICIENT) - disturbance;
+                }
+                
+                let newP = prev + (targetP - prev) * approachRate; 
+                return Math.max(0, newP);
+              });
+            }, LOOP_INTERVAL);
+            return () => clearInterval(interval);
+          }, [fans, disturbance]);
+
+          // --- Intertravamentos da Prensa ---
+          useEffect(() => {
+            const bothMaintenance = fans[609].manutencao && fans[610].manutencao;
+            const veryLowPressure = systemP < 2.0;
+
+            if (shoePressOn && (bothMaintenance || veryLowPressure)) {
+              setShoePressOn(false); 
+            }
+          }, [fans, systemP, shoePressOn]);
+
+          // --- Handlers de Ação ---
+          const handleFanChange = (id, field, value) => {
+            setFans(prev => {
+              const newFans = { ...prev, [id]: { ...prev[id], [field]: value } };
+              const otherId = id === 609 ? 610 : 609;
+              
+              if (field === 'on' && value === true && prev[id].manutencao) {
+                 return prev; 
+              }
+
+              if (field === 'on' && value === false) {
+                 newFans[id].manuallyTurnedOff = true;
+                 newFans[otherId].manuallyTurnedOff = false;
+                 newFans[id].cv = 0; 
+              } else if (field === 'on' && value === true) {
+                 newFans[id].manuallyTurnedOff = false;
+                 newFans[id].lastAutoStart = false; 
+              }
+
+              if (field === 'manutencao' && value === true) {
+                 newFans[id].on = false;
+                 newFans[id].cv = 0;
+                 newFans[id].manuallyTurnedOff = true;
+              }
+              return newFans;
+            });
+          };
+
+          const triggerDisturbance = () => {
+            setDisturbance(4.0); 
+            setTimeout(() => {
+              setDisturbance(0); 
+            }, 5000);
+          };
+
+          const handleTogglePress = () => {
+            if (!shoePressOn) {
+              if (fans[609].manutencao && fans[610].manutencao) return; 
+              if (systemP < 2.0) return; 
+            }
+            setShoePressOn(!shoePressOn);
+          };
+
+          // --- Componentes UI Reutilizáveis ---
+          const ControllerPopup = ({ id }) => {
+            const fan = fans[id];
+            
+            const almL = systemP <= 4.8 && systemP > 4.5;
+            const almLL = systemP <= 4.5;
+            const almH = systemP >= 8.0 && systemP < 9.5;
+            const almHH = systemP >= 9.5;
+
+            const btnStyle = "bg-[#d4d0c8] border-t-white border-l-white border-b-gray-600 border-r-gray-600 border-2 active:border-t-gray-600 active:border-l-gray-600 active:border-b-white active:border-r-white font-bold text-xs p-1 shadow-sm";
+            
+            const activeAStyle = "bg-green-600 text-white shadow-[inset_0_3px_5px_rgba(0,0,0,0.6)] border-gray-600 border-t-2 border-l-2";
+            const activeMStyle = "bg-red-600 text-white shadow-[inset_0_3px_5px_rgba(0,0,0,0.6)] border-gray-600 border-t-2 border-l-2";
+
+            const applyStep = (direction, isLarge) => {
+              const target = fan.selectedTarget;
+              if (target === 'cv' && fan.mode === 'A') return; 
+              const amount = isLarge ? (target === 'sp' ? 1.0 : 10) : (target === 'sp' ? 0.1 : 1);
+              const delta = direction === 'up' ? amount : -amount;
+              const newVal = Math.max(0, Math.min(target === 'sp' ? 10 : 100, fan[target] + delta));
+              handleFanChange(id, target, newVal);
+            };
+
+            return (
+              <div className="bg-[#d4d0c8] border-t-white border-l-white border-b-gray-800 border-r-gray-800 border-2 p-1 w-[300px] text-black font-sans shadow-xl select-none">
+                <div className="bg-blue-800 text-white font-bold text-xs p-1 flex justify-between items-center mb-2">
+                  <span>Popup Oper PID {id === 609 ? '1' : '2'}</span>
+                  <button className="bg-[#d4d0c8] text-black px-1 border border-gray-400 font-bold">X</button>
+                </div>
+
+                <div className="text-center font-bold text-sm mb-2">
+                  324SC{id}<br/>Velocidade Ventilador {id}
+                </div>
+
+                <div className="flex gap-2">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="flex gap-1 w-full">
+                      <button 
+                        onPointerDown={() => handleFanChange(id, 'mode', 'A')}
+                        className={`flex-1 font-bold text-xs p-1 ${fan.mode === 'A' ? activeAStyle : btnStyle}`}
+                      >A</button>
+                      <button 
+                        onPointerDown={() => handleFanChange(id, 'mode', 'M')}
+                        className={`flex-1 font-bold text-xs p-1 ${fan.mode === 'M' ? activeMStyle : btnStyle}`}
+                      >M</button>
+                    </div>
+                    
+                    <div className="flex gap-2 h-32 items-end bg-gray-200 p-1 border-inset border-2 border-gray-500">
+                       <div className="flex flex-col items-center justify-end h-full">
+                         <span className="text-[10px] text-blue-800 font-bold">PV</span>
+                         <div className="w-4 bg-blue-800 transition-all duration-100" style={{height: `${Math.min(100, (systemP/10)*100)}%`}}></div>
+                       </div>
+                       <div className="flex flex-col items-center justify-end h-full">
+                         <span className="text-[10px] text-fuchsia-600 font-bold">SP</span>
+                         <div className="w-4 bg-fuchsia-600 transition-all duration-100" style={{height: `${Math.min(100, (fan.sp/10)*100)}%`}}></div>
+                       </div>
+                       <div className="flex flex-col items-center justify-end h-full">
+                         <span className="text-[10px] text-gray-500 font-bold">CV</span>
+                         <div className="w-4 bg-cyan-600 transition-all duration-100" style={{height: `${fan.cv}%`}}></div>
+                       </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col justify-between py-2 flex-grow">
+                    <div>
+                      <span className="text-xs font-bold text-blue-800 block">PV</span>
+                      <div className="bg-gray-100 border-inset border-2 border-gray-500 text-right px-1 font-mono text-sm">
+                        {systemP.toFixed(2)}
+                      </div>
+                    </div>
+                    <div 
+                      className="cursor-pointer" 
+                      onPointerDown={() => handleFanChange(id, 'selectedTarget', 'sp')}
+                    >
+                      <span className="text-xs font-bold text-fuchsia-600 block">SP {fan.selectedTarget === 'sp' && '◀'}</span>
+                      <div className={`bg-gray-100 border-inset border-2 ${fan.selectedTarget === 'sp' ? 'border-yellow-400 bg-yellow-100' : 'border-gray-500'} text-right px-1 font-mono text-sm`}>
+                        {fan.sp.toFixed(2)}
+                      </div>
+                    </div>
+                    <div 
+                      className="cursor-pointer" 
+                      onPointerDown={() => handleFanChange(id, 'selectedTarget', 'cv')}
+                    >
+                      <span className="text-xs font-bold text-gray-600 block">CV % {fan.selectedTarget === 'cv' && '◀'}</span>
+                      <div className={`bg-gray-100 border-inset border-2 ${fan.selectedTarget === 'cv' ? 'border-yellow-400 bg-yellow-100' : 'border-gray-500'} text-right px-1 font-mono text-sm transition-all duration-100`}>
+                        {fan.cv.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col justify-between">
+                    <div className="grid grid-cols-2 gap-1 text-[10px] text-center font-bold">
+                       <div className={`${almH ? 'bg-red-500 text-white' : 'bg-gray-300'} border p-1`}>0,00<br/>ALM H</div>
+                       <div className={`${almHH ? 'bg-red-500 text-white' : 'bg-gray-300'} border p-1`}>0,00<br/>ALM HH</div>
+                       <div className={`${almL ? 'bg-yellow-400 text-black' : 'bg-gray-300'} border p-1`}>4,80<br/>ALM L</div>
+                       <div className={`${almLL ? 'bg-red-500 text-white' : 'bg-gray-300'} border p-1`}>4,50<br/>ALM LL</div>
+                    </div>
+                    
+                    <button 
+                      className={`${btnStyle} mt-1 ${fan.on ? 'bg-green-500 hover:bg-green-400 active:bg-green-600 text-white' : 'bg-red-500 hover:bg-red-400 active:bg-red-600 text-white'} ${fan.manutencao ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      onPointerDown={() => handleFanChange(id, 'on', !fan.on)}
+                    >
+                      {fan.on ? 'MOTOR ON' : 'MOTOR OFF'}
+                    </button>
+
+                    <div className="grid grid-cols-4 gap-1 mt-1">
+                       <button className={btnStyle} onPointerDown={() => applyStep('up', false)}>▲</button>
+                       <button className={btnStyle} onPointerDown={() => applyStep('up', true)}>⇈</button>
+                       <button className={`${btnStyle} col-span-2`}>INTERT</button>
+                       
+                       <button className={btnStyle} onPointerDown={() => applyStep('down', false)}>▼</button>
+                       <button className={btnStyle} onPointerDown={() => applyStep('down', true)}>⇊</button>
+                       <button 
+                         className={`${btnStyle} col-span-2 ${fan.manutencao ? 'bg-blue-300 text-white shadow-inner border-t-gray-600 border-l-gray-600' : ''}`}
+                         onPointerDown={() => handleFanChange(id, 'manutencao', !fan.manutencao)}
+                       >MANUT</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          };
+
+          return (
+            <div className="min-h-screen bg-[#6eb4ff] flex flex-col font-sans select-none overflow-hidden">
+              
+              <div className="bg-gray-800 text-white p-2 flex justify-between items-center shadow-md">
+                <div className="font-bold">Serv. Telas - glwmaqiv01 | Prensa Sapata SCADA</div>
+                <div className="flex gap-4">
+                   <button 
+                     onPointerDown={handleTogglePress}
+                     className={`px-4 py-1 font-bold rounded ${shoePressOn ? 'bg-green-600' : 'bg-red-600'} ${(!shoePressOn && (systemP < 2.0 || (fans[609].manutencao && fans[610].manutencao))) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                     title={(!shoePressOn && (systemP < 2.0 || (fans[609].manutencao && fans[610].manutencao))) ? "Intertravamento ativo: Verifique pressão ou estado de manutenção dos motores" : ""}
+                   >
+                     Prensa: {shoePressOn ? 'LIGADA' : 'DESLIGADA'}
+                   </button>
+                   <button 
+                     onPointerDown={triggerDisturbance}
+                     className="px-4 py-1 font-bold bg-yellow-500 text-black rounded hover:bg-yellow-400 active:bg-yellow-600"
+                   >
+                     ⚠️ Simular Transtorno (Queda &lt; 4 kPa)
+                   </button>
+                </div>
+              </div>
+
+              <div className="relative flex-grow p-4">
+                
+                <div className="absolute top-4 left-4 z-20 flex gap-4">
+                  <ControllerPopup id={609} />
+                  <ControllerPopup id={610} />
+                </div>
+                
+                <div className="absolute top-4 right-4 z-50 bg-white/90 p-3 w-[260px] border-2 border-gray-400 shadow-xl text-[11px] leading-tight">
+                  <h3 className="font-bold border-b border-gray-400 mb-2 text-sm text-red-700">Instruções de Operação:</h3>
+                  <ul className="list-disc pl-4 space-y-2 mb-2">
+                      <li>O Popup <b>A/M</b> controla a malha PID. O <b>MOTOR ON/OFF</b> comanda o Inversor.</li>
+                      <li>Se a Prensa Sapata estiver Ligada, o ventilador <b>liga automaticamente</b> se a pressão for menor que 4,0 kPa, independente de estar manual ou auto.</li>
+                      <li>No socorro (P &lt; 4.0), o motor parte automaticamente com <b>50% do inversor</b> e com a malha PID assumindo o modo <b>Automático</b>.</li>
+                      <li><b>Clique no quadrado do ventilador</b> abaixo para alternar a cor da borda (Verde = Automático / Vermelho = Manual).</li>
+                  </ul>
+                  <div className="mt-2 text-blue-800 font-bold bg-blue-100 p-1.5 border border-blue-400 text-center text-xs">
+                    P &lt; 4 kPa INICIA SOCORRO
+                  </div>
+                  <div className="mt-2 text-red-600 font-bold text-center border-t border-gray-300 pt-1.5 text-xs">
+                    Intertravamentos: PV &gt; 11 ou PV &lt; 2 kPa (Prensa OFF)<br/>
+                    Ambos em MANUT (Prensa OFF)
+                  </div>
+                </div>
+
+                <div className="absolute bottom-10 left-10 right-10 h-96 border-b-8 border-gray-700 flex items-end justify-start pointer-events-none z-10">
+                    
+                   <div className="w-48 h-64 bg-gray-300 border-4 border-gray-600 relative flex items-center justify-end z-0">
+                      <div className="absolute top-4 -right-6 w-12 h-16 bg-gray-400 border-2 border-gray-600 rounded"></div>
+                      <div className="absolute bottom-4 -right-6 w-12 h-16 bg-gray-400 border-2 border-gray-600 rounded"></div>
+                      <div className="w-32 h-24 bg-gradient-to-b from-gray-200 via-gray-400 to-gray-500 absolute top-8 left-0 border border-gray-600"></div>
+                      <div className="w-32 h-24 bg-gradient-to-b from-gray-200 via-gray-400 to-gray-500 absolute bottom-8 left-0 border border-gray-600"></div>
+                   </div>
+
+                   <div className="absolute left-56 bottom-32">
+                      <div className="bg-[#e6ddb8] border border-gray-500 px-2 py-1 text-sm font-bold flex items-center gap-2 shadow">
+                         <span>PI-572</span>
+                         <span className={systemP < 4.8 ? 'text-red-600' : 'text-black'}>{systemP.toFixed(2)} kPa</span>
+                      </div>
+                   </div>
+
+                   <div className="absolute left-48 bottom-24 w-80 h-3 bg-blue-500 border border-blue-800"></div>
+                   <div className="absolute left-[300px] bottom-12 w-3 h-12 bg-blue-500 border border-blue-800"></div>
+                   <div className="absolute left-[450px] bottom-12 w-3 h-12 bg-blue-500 border border-blue-800"></div>
+
+                   <div className="absolute left-[270px] bottom-0 flex flex-col items-center gap-2 pointer-events-auto">
+                      <div className="bg-[#e6ddb8] border border-gray-500 px-1 text-xs">SC-609: {fans[609].cv.toFixed(1)}%</div>
+                      <div 
+                        className={`w-20 h-20 border-[6px] flex items-center justify-center bg-gray-200 shadow-lg transition-colors cursor-pointer ${fans[609].motorMode === 'A' ? 'border-green-500 hover:bg-green-100' : 'border-red-500 hover:bg-red-100'}`}
+                        onPointerDown={() => handleFanChange(609, 'motorMode', fans[609].motorMode === 'A' ? 'M' : 'A')}
+                        title="Clique para alternar a Borda: Automático (Verde) / Manual (Vermelho)"
+                      >
+                         <div className="w-12 h-12 relative pointer-events-none" style={{ animation: fans[609].cv > 0 ? `spin ${200 / (fans[609].cv || 1)}s linear infinite` : 'none' }}>
+                            <div className="absolute top-0 left-5 w-2 h-12 bg-red-600 rounded-full"></div>
+                            <div className="absolute top-5 left-0 w-12 h-2 bg-red-600 rounded-full"></div>
+                            <div className="absolute top-4 left-4 w-4 h-4 bg-gray-800 rounded-full z-10"></div>
+                         </div>
+                      </div>
+                      <div className="flex gap-1 items-center">
+                         <div className="bg-gray-400 px-2 border border-gray-600 text-xs font-bold">VTL-609</div>
+                         {fans[609].manutencao && <div className="w-4 h-4 bg-blue-600 border border-white text-white text-[10px] flex items-center justify-center font-bold" title="Em Manutenção">S</div>}
+                      </div>
+                   </div>
+
+                   <div className="absolute left-[420px] bottom-0 flex flex-col items-center gap-2 pointer-events-auto">
+                      <div className="bg-[#e6ddb8] border border-gray-500 px-1 text-xs">SC-610: {fans[610].cv.toFixed(1)}%</div>
+                      <div 
+                        className={`w-20 h-20 border-[6px] flex items-center justify-center bg-gray-200 shadow-lg transition-colors cursor-pointer ${fans[610].motorMode === 'A' ? 'border-green-500 hover:bg-green-100' : 'border-red-500 hover:bg-red-100'}`}
+                        onPointerDown={() => handleFanChange(610, 'motorMode', fans[610].motorMode === 'A' ? 'M' : 'A')}
+                        title="Clique para alternar a Borda: Automático (Verde) / Manual (Vermelho)"
+                      >
+                         <div className="w-12 h-12 relative pointer-events-none" style={{ animation: fans[610].cv > 0 ? `spin ${200 / (fans[610].cv || 1)}s linear infinite` : 'none' }}>
+                            <div className="absolute top-0 left-5 w-2 h-12 bg-red-600 rounded-full"></div>
+                            <div className="absolute top-5 left-0 w-12 h-2 bg-red-600 rounded-full"></div>
+                            <div className="absolute top-4 left-4 w-4 h-4 bg-gray-800 rounded-full z-10"></div>
+                         </div>
+                      </div>
+                      <div className="flex gap-1 items-center">
+                         <div className="bg-gray-400 px-2 border border-gray-600 text-xs font-bold">VTL-610</div>
+                         {fans[610].manutencao && <div className="w-4 h-4 bg-blue-600 border border-white text-white text-[10px] flex items-center justify-center font-bold" title="Em Manutenção">S</div>}
+                      </div>
+                   </div>
+
+                </div>
+              </div>
+
+              <style dangerouslySetInnerHTML={{__html: `
+                @keyframes spin { 100% { transform: rotate(360deg); } }
+                body { margin: 0; padding: 0; }
+              `}} />
+            </div>
+          );
+        }
+
+        // --- Renderização do Aplicativo na Página HTML ---
+        const root = ReactDOM.createRoot(document.getElementById('meuApp'));
+        root.render(<App />);
+
+    </script>
+</body>
+</html>

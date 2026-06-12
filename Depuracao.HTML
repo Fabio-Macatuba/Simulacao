@@ -1,0 +1,3488 @@
+<!DOCTYPE html>
+
+<html lang="pt-PT">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Sinótico de Depuração Atualizado</title>
+
+    <style>
+
+        /* Estilos Base e Fundo Escuro */
+
+        body {
+
+          margin: 0;
+
+          padding: 20px;
+
+          background-color: #020617;
+
+          color: #f8fafc;
+
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+          overflow-x: auto;
+
+      }
+
+      h1 {
+
+          color: #f8fafc;
+
+          margin-bottom: 5px;
+
+          font-size: 24px;
+
+          display: flex;
+
+          align-items: center;
+
+          gap: 10px;
+
+      }
+
+      h1 span { color: #f97316; }
+
+      .subtitle {
+
+          color: #94a3b8;
+
+          font-family: monospace;
+
+          font-size: 12px;
+
+          margin-bottom: 20px;
+
+          padding-bottom: 15px;
+
+          border-bottom: 1px solid #334155;
+
+      }
+
+        /* Container do Canvas e Controlos */
+
+        #sim-container {
+
+          position: relative;
+
+          width: 1400px;
+
+          height: 700px;
+
+          background-color: #0f172a;
+
+          border: 1px solid #334155;
+
+          border-radius: 12px;
+
+          box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+
+          overflow: hidden;
+
+      }
+
+        /* O Canvas fica por baixo de tudo */
+
+        canvas {
+
+          position: absolute;
+
+          top: 0;
+
+          left: 0;
+
+          z-index: 1;
+
+        }
+
+        /* Controlos HTML sobrepostos ao Canvas */
+
+        .control-panel {
+
+          position: absolute;
+
+          z-index: 2;
+
+          background-color: rgba(15, 23, 42, 0.95);
+
+          border: 1px solid #475569;
+
+          padding: 8px 10px;
+
+          border-radius: 8px;
+
+          display: flex;
+
+          flex-direction: column;
+
+          align-items: center;
+
+          width: 110px;
+
+          box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+
+          transition: border-color 0.2s;
+
+      }
+
+      .control-panel span.label {
+
+          font-size: 10px;
+
+          font-weight: bold;
+
+          margin-bottom: 4px;
+
+          text-align: center;
+
+          line-height: 1.2;
+
+        }
+
+       
+
+        /* Grupo de Ajuste Numérico */
+
+        .input-group {
+
+          display: flex;
+
+          align-items: center;
+
+          justify-content: center;
+
+          gap: 3px;
+
+          margin-bottom: 5px;
+
+          width: 100%;
+
+      }
+
+      .btn-step {
+
+          background-color: #334155;
+
+          border: 1px solid #475569;
+
+          color: white;
+
+          border-radius: 4px;
+
+          width: 20px;
+
+          height: 20px;
+
+          font-size: 12px;
+
+          display: flex;
+
+          align-items: center;
+
+          justify-content: center;
+
+          cursor: pointer;
+
+          font-weight: bold;
+
+          transition: all 0.15s;
+
+          user-select: none;
+
+      }
+
+      .btn-step:hover {
+
+          background-color: #64748b;
+
+          border-color: #94a3b8;
+
+      }
+
+      .btn-step:active {
+
+          transform: scale(0.9);
+
+      }
+
+      .control-panel input[type="number"] {
+
+          width: 40px;
+
+          background-color: #1e293b;
+
+          color: white;
+
+          border: 1px solid #475569;
+
+          border-radius: 4px;
+
+          font-size: 11px;
+
+          font-family: monospace;
+
+          text-align: center;
+
+          padding: 2px 0;
+
+          outline: none;
+
+      }
+
+      .control-panel input[type="number"]::-webkit-outer-spin-button,
+
+      .control-panel input[type="number"]::-webkit-inner-spin-button {
+
+          -webkit-appearance: none;
+
+          margin: 0;
+
+      }
+
+      .control-panel input[type="number"] {
+
+          -moz-appearance: textfield;
+
+      }
+
+ 
+
+      .control-panel input[type="range"] {
+
+          width: 85px;
+
+          cursor: pointer;
+
+          margin: 0;
+
+      }
+
+      .control-panel input[type="range"]:disabled {
+
+          opacity: 0.5;
+
+          cursor: not-allowed;
+
+      }
+
+ 
+
+      /* Botoes Especiais */
+
+      .btn-auto {
+
+          font-size: 9px;
+
+          background-color: #475569;
+
+          color: #f8fafc;
+
+          border: 1px solid #64748b;
+
+          border-radius: 4px;
+
+          cursor: pointer;
+
+          padding: 2px 5px;
+
+          margin-left: 5px;
+
+          font-weight: bold;
+
+          transition: all 0.2s;
+
+      }
+
+      .btn-auto:hover { background-color: #334155; }
+
+      .btn-auto.active { background-color: #10b981; border-color: #047857; }
+
+ 
+
+      /* Posicionado ligeiramente acima para evitar cruzamento com as linhas inferiores de fluxo */
+
+        .btn-seq {
+
+          position: absolute;
+
+          z-index: 10;
+
+          left: 50%;
+
+          top: 75px;
+
+          transform: translateX(-50%);
+
+          background-color: #2563eb;
+
+          color: white;
+
+          border: 2px solid #3b82f6;
+
+          padding: 10px 24px;
+
+          border-radius: 8px;
+
+          font-weight: bold;
+
+          font-size: 14px;
+
+          cursor: pointer;
+
+          transition: all 0.2s;
+
+          box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+
+      }
+
+      .btn-seq:hover { background-color: #1d4ed8; }
+
+      .btn-seq:disabled { background-color: #475569; border-color: #334155; cursor: not-allowed; opacity: 0.7; }
+
+ 
+
+      .msg-box {
+
+            position: absolute;
+
+            top: 130px; /* Ajustado para acompanhar a subida do botão de sequência */
+
+            left: 50%;
+
+          transform: translateX(-50%);
+
+          background-color: #ef4444;
+
+          color: white;
+
+          padding: 12px 20px;
+
+          border-radius: 6px;
+
+          font-weight: bold;
+
+          z-index: 20;
+
+          display: none;
+
+          box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+
+          font-size: 13px;
+
+        }
+
+ 
+
+        /* Botões de Bombas - Vermelho quando parado, Verde quando ativo */
+
+        .btn-equip {
+
+          position: absolute;
+
+          z-index: 2;
+
+          width: 60px;
+
+          height: 60px;
+
+          border-radius: 50%;
+
+          border: 4px solid #991b1b;
+
+          background-color: #ef4444;
+
+          color: #fff;
+
+          font-weight: bold;
+
+          font-size: 11px;
+
+          cursor: pointer;
+
+          box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+
+          transition: all 0.2s;
+
+      }
+
+      .btn-equip:hover { transform: scale(1.05); }
+
+      .btn-equip.active-pump,
+
+      .btn-equip.active-pump-d08,
+
+      .btn-equip.active-pump-dc4 {
+
+          background-color: #10b981;
+
+          border-color: #047857;
+
+          color: #fff;
+
+        }
+
+       
+
+        /* Botões dos motores (quadrados invisíveis sobre os motores desenhados no canvas) */
+
+        .btn-motor {
+
+          position: absolute;
+
+          z-index: 2;
+
+          width: 60px;
+
+          height: 45px;
+
+          background-color: transparent;
+
+         border: none;
+
+          cursor: pointer;
+
+          outline: none;
+
+      }
+
+      .btn-motor:hover {
+
+          background-color: rgba(255, 255, 255, 0.1);
+
+          border-radius: 4px;
+
+      }
+
+ 
+
+ 
+
+ 
+
+ 
+
+.console-wrapper {
+
+    width: 100%;
+
+    max-width: 1400px;
+
+    margin: 550px auto 20px auto; /* Aumentamos a margem de cima para 40px para descer o console */
+
+    display: flex;
+
+    justify-content: flex-end;   /* Mantém na direita, mas se quiser totalmente na esquerda mude para flex-start */
+
+   
+
+    /* Caso o seu container use posição absoluta, estas duas linhas garantem que ele vá para baixo */
+
+    position: relative;
+
+    clear: both;
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+.console-container {
+
+    width: 50%;            /* Ocupa metade da largura da tela (ajuste se quiser maior) */
+
+    background-color: #0f172a;
+
+    border: 2px solid #1e293b;
+
+    border-radius: 6px;
+
+    overflow: hidden;
+
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+
+}
+
+ 
+
+.console-header {
+
+    background-color: #1e293b;
+
+    color: #94a3b8;
+
+    padding: 6px 12px;
+
+    font-family: sans-serif;
+
+    font-size: 11px;
+
+    font-weight: bold;
+
+    text-transform: uppercase;
+
+    border-bottom: 1px solid #334155;
+
+    letter-spacing: 0.5px;
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+#sistema-console {
+
+    height: 120px;             /* Diminuído de 180px para 120px (caixa menor) */
+
+    max-height: 120px;         /* Força a caixar a travar nesse tamanho menor */
+
+    overflow-y: auto;          /* Mantém a rolagem ativa para o resto dos alarmes */
+
+    display: block !important;
+
+    padding: 6px;
+
+    background-color: #1e1e1e;
+
+    font-family: monospace;
+
+    font-size: 11px;           /* Letra compacta para caber tudo direitinho */
+
+    line-height: 1.3;
+
+    text-align: left;
+
+    box-sizing: border-box;
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+  </style>
+
+</head>
+
+<body>
+
+    <h1><span>⚙️</span> SINÓTICO DE DEPURAÇÃO: D10 ➔ D08 ➔ DC4</h1>
+
+    <div class="subtitle">Layout Atualizado: BBA.04 livre da 118 | Motores e Bombas Vermelhos (OFF) e Verdes (ON) | Interlock de Entupimento Ativo.</div>
+
+ 
+
+    <div id="sim-container">
+
+        <!-- O Canvas desenha as linhas, tubos, máquinas e tanques -->
+
+        <canvas id="simCanvas" width="1400" height="700"></canvas>
+
+ 
+
+      <!-- CAIXA DE MENSAGENS -->
+
+        <div id="msg-box" class="msg-box"></div>
+
+ 
+
+        <!-- BOTÃO DE SEQUÊNCIA DE ARRANQUE -->
+
+        <button id="btn-seq" class="btn-seq">🚀 LIGA DEPURADORES</button>
+
+ 
+
+      <!-- BOMBAS (Botões) -->
+
+      <button id="btn-bba04" class="btn-equip" style="left: 40px; top: 350px;" title="Ligar/Desligar BBA.04">BBA.04</button>
+
+      <button id="btn-bba118" class="btn-equip" style="left: 40px; top: 180px;" title="Ligar/Desligar BBA.118 (Saída TNQ-006)">BBA.118</button>
+
+      <button id="btn-bba113" class="btn-equip" style="left: 420px; top: 350px;" title="Ligar/Desligar BBA.113">BBA.113</button>
+
+      <button id="btn-bba115" class="btn-equip" style="left: 820px; top: 350px;" title="Ligar/Desligar BBA.115">BBA.115</button>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+<canvas id="simCanvas" width="1400" height="500"></canvas>
+
+ 
+
+<div class="console-wrapper">
+
+    <div class="console-container">
+
+        <div class="console-header">💻 Histórico de Eventos e Manobras</div>
+
+        <div id="sistema-console"></div>
+
+    </div>
+
+</div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+      <!-- MOTORES INVISÍVEIS PARA CLIQUE -->
+
+      <button id="btn-mot116" class="btn-motor" style="left: 260px; top: 455px;" title="Ligar/Desligar MOT.116 (D10)"></button>
+
+      <button id="btn-mot114" class="btn-motor" style="left: 660px; top: 455px;" title="Ligar/Desligar MOT.114 (D08)"></button>
+
+      <button id="btn-mot112" class="btn-motor" style="left: 1060px; top: 455px;" title="Ligar/Desligar MOT.112 (DC4)"></button>
+
+ 
+
+      <!-- CONTROLOS TNQ.006 (Ampliado para conter o botão de RESET ao lado) -->
+
+        <div class="control-panel" style="left: 155px; top: 10px; border-color: #fcd34d; width: 180px; flex-direction: row; justify-content: space-between; gap: 10px;">
+
+          <div style="display: flex; flex-direction: column; align-items: center;">
+
+              <span class="label" style="color:#fcd34d;">SP TNQ.006</span>
+
+              <input type="number" id="sp-tnq006" min="0" max="100" value="60" step="5" style="width: 50px; text-align: center; background: #1e293b; color: #fff; border: 1px solid #475569; border-radius: 4px; font-family: monospace; font-size: 12px; outline: none;">
+
+          </div>
+
+          <button id="btn-reset" class="btn-step" style="width: 75px; height: 35px; font-size: 11px; background-color: #ef4444; border-color: #f87171; align-self: flex-end;" title="Redefine toda a simulação para as condições iniciais">RESET</button>
+
+      </div>
+
+ 
+
+        <!-- CONTROLOS D10 - LV.012 (Movido para a esquerda e para baixo para não sobrepor o D10) -->
+
+        <div class="control-panel" style="left: 40px; top: 250px; border-color: #22c55e;">
+
+          <span class="label" style="color:#4ade80; display:flex; align-items:center; width:100%; justify-content:space-between;">
+
+              LV.012
+
+              <button id="btn-auto-lv012" class="btn-auto" title="Controlo Automático de Nível TNQ.006">MAN</button>
+
+          </span>
+
+          <div class="input-group">
+
+              <button class="btn-step" onclick="adjustValue('lv012', -5)">-</button>
+
+              <input type="number" id="num-lv012" min="0" max="100" value="0" step="5">
+
+              <button class="btn-step" onclick="adjustValue('lv012', 5)">+</button>
+
+          </div>
+
+          <input type="range" id="lv012" min="0" max="100" value="0" step="5">
+
+      </div>
+
+ 
+
+      <div class="control-panel" style="left: 360px; top: 180px; border-color: #f97316;">
+
+          <span class="label" style="color:#fb923c;">FC-006 (Rejeito)</span>
+
+          <div class="input-group">
+
+              <button class="btn-step" onclick="adjustValue('fc006', -5)">-</button>
+
+              <input type="number" id="num-fc006" min="0" max="100" value="0" step="5">
+
+              <button class="btn-step" onclick="adjustValue('fc006', 5)">+</button>
+
+          </div>
+
+          <input type="range" id="fc006" min="0" max="100" value="0" step="5">
+
+      </div>
+
+ 
+
+      <!-- FC-007 Selagem D10 -->
+
+      <div class="control-panel" style="left: 360px; top: 430px; border-color: #3b82f6;">
+
+          <span class="label" style="color:#60a5fa;">FC-007 (Selagem)<br>(BBA.012)</span>
+
+          <div class="input-group">
+
+              <button class="btn-step" onclick="adjustValue('fc007', -5)">-</button>
+
+              <input type="number" id="num-fc007" min="0" max="100" value="0" step="5">
+
+              <button class="btn-step" onclick="adjustValue('fc007', 5)">+</button>
+
+          </div>
+
+          <input type="range" id="fc007" min="0" max="100" value="0" step="5">
+
+      </div>
+
+ 
+
+        <!-- CONTROLOS PC.013 (Movido um pouco para a esquerda, de left: 120px para left: 80px) -->
+
+        <div class="control-panel" style="left: 80px; top: 430px; border-color: #a855f7;">
+
+          <span class="label" style="color:#c084fc;">PC-013 (Inlet D10)</span>
+
+          <div class="input-group">
+
+              <button class="btn-step" onclick="adjustValue('pc013', -5)">-</button>
+
+              <input type="number" id="num-pc013" min="0" max="100" value="0" step="5">
+
+              <button class="btn-step" onclick="adjustValue('pc013', 5)">+</button>
+
+          </div>
+
+          <input type="range" id="pc013" min="0" max="100" value="0" step="5">
+
+      </div>
+
+ 
+
+      <!-- CONTROLOS D08 -->
+
+      <div class="control-panel" style="left: 480px; top: 120px; border-color: #10b981; width: 115px;">
+
+          <span class="label" style="color:#4ade80;">HC-016 (P/ TND)</span>
+
+          <div class="input-group">
+
+              <button class="btn-step" onclick="adjustValue('hc016', -5)">-</button>
+
+              <input type="number" id="num-hc016" min="0" max="100" value="20" step="5">
+
+              <button class="btn-step" onclick="adjustValue('hc016', 5)">+</button>
+
+          </div>
+
+          <input type="range" id="hc016" min="0" max="100" value="20" step="5">
+
+         
+
+          <div style="height: 10px;"></div>
+
+         
+
+          <span class="label" style="color:#34d399;">HC-011 (P/ TND)</span>
+
+          <div class="input-group">
+
+              <button class="btn-step" onclick="adjustValue('hc011', -5)">-</button>
+
+              <input type="number" id="num-hc011" min="0" max="100" value="80" step="5">
+
+              <button class="btn-step" onclick="adjustValue('hc011', 5)">+</button>
+
+          </div>
+
+          <input type="range" id="hc011" min="0" max="100" value="80" step="5">
+
+      </div>
+
+     
+
+      <!-- Pos 4 (Cima) -->
+
+      <div class="control-panel" style="left: 770px; top: 180px; border-color: #ef4444;">
+
+          <span class="label" style="color:#f87171;">FC-009 (Rejeito)</span>
+
+          <div class="input-group">
+
+              <button class="btn-step" onclick="adjustValue('fc009', -5)">-</button>
+
+              <input type="number" id="num-fc009" min="0" max="100" value="0" step="5">
+
+              <button class="btn-step" onclick="adjustValue('fc009', 5)">+</button>
+
+          </div>
+
+          <input type="range" id="fc009" min="0" max="100" value="0" step="5">
+
+      </div>
+
+        <!-- Pos 3 (Baixo, perto da BBA.115) -->
+
+        <div class="control-panel" style="left: 770px; top: 430px; border-color: #3b82f6;">
+
+          <span class="label" style="color:#60a5fa;">FC-010 (Selagem)<br>(BBA.012)</span>
+
+          <div class="input-group">
+
+              <button class="btn-step" onclick="adjustValue('fc010', -5)">-</button>
+
+              <input type="number" id="num-fc010" min="0" max="100" value="0" step="5">
+
+              <button class="btn-step" onclick="adjustValue('fc010', 5)">+</button>
+
+          </div>
+
+          <input type="range" id="fc010" min="0" max="100" value="0" step="5">
+
+      </div>
+
+ 
+
+      <!-- CONTROLOS DC4 -->
+
+      <!-- O Painel foi subido e deslocado para a direita (top: 70px, left: 960px) para não se sobrepor ao depurador DC4 -->
+
+      <div class="control-panel" style="left: 960px; top: 70px; border-color: #10b981;">
+
+          <span class="label" style="color:#34d399; display:flex; align-items:center; width:100%; justify-content:space-between;">
+
+              PC-017 (Aceite)
+
+               <!-- Inicia em AUT (ativo) -->
+
+                <button id="btn-auto-pc017" class="btn-auto active">AUT</button>
+
+          </span>
+
+          <div class="input-group">
+
+              <button class="btn-step" onclick="adjustValue('pc017', -5)">-</button>
+
+              <input type="number" id="num-pc017" min="0" max="100" value="60" step="5" disabled>
+
+              <button class="btn-step" onclick="adjustValue('pc017', 5)">+</button>
+
+          </div>
+
+            <!-- Inicia em 60 e bloqueado pelo modo AUT -->
+
+            <input type="range" id="pc017" min="0" max="100" value="60" step="5" disabled>
+
+      </div>
+
+     
+
+      <!-- Pos 4 (Cima) -->
+
+      <div class="control-panel" style="left: 1180px; top: 180px; border-color: #ef4444;">
+
+          <span class="label" style="color:#f87171;">FC-012 (Rejeito)</span>
+
+          <div class="input-group">
+
+              <button class="btn-step" onclick="adjustValue('fc012', -5)">-</button>
+
+              <input type="number" id="num-fc012" min="0" max="100" value="0" step="5">
+
+              <button class="btn-step" onclick="adjustValue('fc012', 5)">+</button>
+
+          </div>
+
+          <input type="range" id="fc012" min="0" max="100" value="0" step="5">
+
+      </div>
+
+ 
+
+      <!-- Pos 3 (Baixo) -->
+
+      <div class="control-panel" style="left: 1170px; top: 430px; border-color: #3b82f6;">
+
+          <span class="label" style="color:#60a5fa;">FC-013 (Selagem)<br>(BBA.012)</span>
+
+          <div class="input-group">
+
+              <button class="btn-step" onclick="adjustValue('fc013', -5)">-</button>
+
+              <input type="number" id="num-fc013" min="0" max="100" value="0" step="5">
+
+              <button class="btn-step" onclick="adjustValue('fc013', 5)">+</button>
+
+          </div>
+
+          <input type="range" id="fc013" min="0" max="100" value="0" step="5">
+
+      </div>
+
+    </div>
+
+ 
+
+    <script>
+
+        // --- ESTADOS GLOBAIS DA SIMULAÇÃO ---
+
+        const state = {
+
+          bba04On: false,
+
+          bba113On: false,
+
+          bba115On: false,
+
+          bba118On: false, // Bomba TNQ-006
+
+          mot116On: false, // D10
+
+          mot114On: false, // D08
+
+          mot112On: false, // DC4
+
+           
+
+            pc013: 0, // PC-013 inicia em 0%
+
+            lv012: 0,
+
+            lv012Auto: false,
+
+            
+
+            fc006: 0,
+
+            fc007: 0,
+
+           
+
+            hc016: 20,
+
+            hc011: 80,
+
+            fc009: 0,
+
+           fc010: 0,
+
+           
+
+            pc017: 60, // Inicializado a 60%
+
+            pc017Auto: true, // Inicializado em AUTO
+
+         
+
+            fc012: 0,
+
+            fc013: 0,
+
+ 
+
+            tnq006Level: 60, // Nível inicial configurado para 60%
+
+            tnq006SP: 60,   // Set Point do Tanque (Inicia em 60%)
+
+           
+
+            offset: 0,
+
+ 
+
+            // Variáveis de monitorização de Entupimento (Timer)
+
+            blockedD10: false, timerD10: 0,
+
+            blockedD08: false, timerD08: 0,
+
+            blockedDC4: false, timerDC4: 0,
+
+ 
+
+            // Flags de armamento do intertravamento (só ativam após atingir target)
+
+            targetReachedD10: false, // Ativa quando FC-006 >= 40
+
+            targetReachedD08: false, // Ativa quando FC-009 >= 50
+
+            targetReachedDC4: false  // Ativa quando FC-012 >= 60
+
+        };
+
+ 
+
+        // --- VARIÁVEIS GLOBAIS DE RENDERIZAÇÃO (Inicializadas no onload) ---
+
+        let canvas;
+
+        let ctx;
+
+ 
+
+        // Lista de controladores sincronizados
+
+        const binds = ['pc013', 'lv012', 'fc006', 'fc007', 'hc016', 'hc011', 'fc009', 'fc010', 'pc017', 'fc012', 'fc013'];
+
+ 
+
+        // --- SISTEMA DE MENSAGENS ---
+
+        function showMessage(msg, type = "error") {
+
+            const box = document.getElementById('msg-box');
+
+            if (box) {
+
+                box.textContent = msg;
+
+                box.style.backgroundColor = type === "error" ? "#ef4444" : "#10b981";
+
+              box.style.display = 'block';
+
+              setTimeout(() => box.style.display = 'none', 6000);
+
+          }
+
+        }
+
+ 
+
+        // --- SISTEMA DE PARAGEM E REINÍCIO (Reset de sequência caso algum motor ou bomba caia) ---
+
+        function triggerSequenceReset(equipName) {
+
+            // Se a BBA.04 estiver ligada, para-a instantaneamente
+
+            if (state.bba04On) {
+
+              state.bba04On = false;
+
+              const btnB04 = document.getElementById('btn-bba04');
+
+              if (btnB04) btnB04.classList.remove('active-pump');
+
+          }
+
+ 
+
+            // Desliga todos os equipamentos de sequência para voltar ao início
+
+            state.mot116On = false;
+
+          state.mot114On = false;
+
+          state.mot112On = false;
+
+          state.bba113On = false;
+
+          state.bba115On = false;
+
+ 
+
+            // Limpa classes ativas das bombas intermediárias
+
+            const b113 = document.getElementById('btn-bba113');
+
+            const b115 = document.getElementById('btn-bba115');
+
+            if (b113) b113.classList.remove('active-pump-d08');
+
+            if (b115) b115.classList.remove('active-pump-dc4');
+
+ 
+
+          showMessage(`INTERLOCK: ${equipName} parou! BBA.04 desligada e sequência de depuração reiniciada.`, "error");
+
+        }
+
+ 
+
+        // --- CÁLCULOS DE LÓGICA E FÍSICA ---
+
+        function getFlows() {
+
+          // D10
+
+          const flowD10_In = state.bba04On && state.pc013 > 0;
+
+          const flowD10_Seal = state.fc007 > 0;
+
+          const flowD10_Acc = flowD10_In && state.mot116On && state.lv012 > 0;
+
+          const flowD10_Rej = flowD10_In && state.mot116On && state.fc006 > 0;
+
+ 
+
+          // D08
+
+          const flowD08_In = (flowD10_Rej || (state.bba113On && state.pc017 > 0 && state.mot112On)) && state.bba113On;
+
+          const flowD08_AccMain = flowD08_In && state.mot114On && (state.hc016 > 0 || state.hc011 > 0);
+
+          const flowD08_RejMain = flowD08_In && state.mot114On && state.fc009 > 0;
+
+          const flowD08_Seal = state.fc010 > 0;
+
+  
+
+        // DC4
+
+          const flowDC4_In = flowD08_RejMain && state.bba115On;
+
+          const flowDC4_Seal = state.fc013 > 0;
+
+          const flowDC4_Acc = flowDC4_In && state.mot112On && state.pc017 > 0;
+
+          const flowDC4_Rej = flowDC4_In && state.mot112On && state.fc012 > 0;
+
+ 
+
+          return {
+
+              flowD10_In, flowD10_Seal, flowD10_Acc, flowD10_Rej,
+
+              flowD08_In, flowD08_Seal, flowD08_AccMain, flowD08_RejMain,
+
+              flowDC4_In, flowDC4_Seal, flowDC4_Acc, flowDC4_Rej
+
+          };
+
+      }
+
+ 
+
+      function calcSensors(flows) {
+
+          const getPDI = (inlet, motor, restriction, base) => {
+
+              if (!inlet) return 0.0;
+
+              let val = base + 0.15;
+
+              if (motor) val += 0.08;
+
+              if (restriction < 50) val += (50 - restriction) * 0.003;
+
+              return val;
+
+          };
+
+ 
+
+          const getRej = (rejectFlow, valveOpen) => {
+
+              if (!rejectFlow) return 0.0;
+
+              return 15.0 + (valveOpen * 0.15);
+
+          };
+
+ 
+
+          return {
+
+              pdiD10: state.blockedD10 ? 5.00 : getPDI(flows.flowD10_In, state.mot116On, state.lv012, 0.05),
+
+              rejD10: getRej(flows.flowD10_Rej, state.fc006),
+
+             
+
+              pdiD08: state.blockedD08 ? 5.00 : getPDI(flows.flowD08_In, state.mot114On, Math.max(state.hc016, state.hc011), 0.04),
+
+              rejD08: getRej(flows.flowD08_RejMain, state.fc009),
+
+             
+
+              pdiDC4: state.blockedDC4 ? 5.00 : getPDI(flows.flowDC4_In, state.mot112On, state.pc017, 0.03),
+
+              rejDC4: getRej(flows.flowDC4_Rej, state.fc012)
+
+          };
+
+        }
+
+ 
+
+        // --- SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL (SLIDER <=> INPUT NUMÉRICO) ---
+
+        function updateStateValue(id, value) {
+
+          let numVal = parseInt(value);
+
+          if (isNaN(numVal)) numVal = 0;
+
+          numVal = Math.max(0, Math.min(100, numVal));
+
+         
+
+          state[id] = numVal;
+
+ 
+
+          // Sincroniza slider
+
+          const slider = document.getElementById(id);
+
+          if (slider) slider.value = numVal;
+
+ 
+
+          // Sincroniza caixa numérica
+
+            const numInput = document.getElementById('num-' + id);
+
+            if (numInput) numInput.value = numVal;
+
+      }
+
+ 
+
+      function adjustValue(id, delta) {
+
+          if (id === 'lv012' && state.lv012Auto) return;
+
+          if (id === 'pc017' && state.pc017Auto) return;
+
+          
+
+          let newVal = state[id] + delta;
+
+          updateStateValue(id, newVal);
+
+        }
+
+ 
+
+        // --- FUNÇÕES DE DESENHO CANVAS ---
+
+        function drawPipe(points, color, width, isActive, isWater, reverseDash = false) {
+
+          ctx.beginPath();
+
+          ctx.moveTo(points[0].x, points[0].y);
+
+          for (let i = 1; i < points.length; i++) {
+
+              ctx.lineTo(points[i].x, points[i].y);
+
+          }
+
+         
+
+          ctx.strokeStyle = '#334155';
+
+          ctx.lineWidth = width;
+
+          ctx.setLineDash([]);
+
+          ctx.lineJoin = "round";
+
+          ctx.stroke();
+
+ 
+
+          if (isActive) {
+
+              ctx.strokeStyle = color;
+
+              ctx.lineWidth = width / 2;
+
+              ctx.setLineDash(isWater ? [6, 8] : [12, 12]);
+
+              let speed = isWater ? 3 : 2;
+
+              ctx.lineDashOffset = reverseDash ? (state.offset * speed) : (-state.offset * speed);
+
+              ctx.stroke();
+
+            }
+
+        }
+
+ 
+
+        // Desenho de Símbolo Realista de Válvula de Controlo no Tubo
+
+        function drawControlValveSymbol(x, y, tag, value) {
+
+          ctx.save();
+
+          ctx.fillStyle = value > 0 ? '#10b981' : '#ef4444'; // Verde aberta, Vermelha fechada
+
+            ctx.strokeStyle = '#475569';
+
+          ctx.lineWidth = 1.5;
+
+ 
+
+          // Triângulo esquerdo
+
+            ctx.beginPath();
+
+            ctx.moveTo(x - 8, y - 6);
+
+            ctx.lineTo(x - 8, y + 6);
+
+            ctx.lineTo(x, y);
+
+            ctx.closePath();
+
+          ctx.fill(); ctx.stroke();
+
+ 
+
+          // Triângulo direito
+
+            ctx.beginPath();
+
+            ctx.moveTo(x + 8, y - 6);
+
+            ctx.lineTo(x + 8, y + 6);
+
+            ctx.lineTo(x, y);
+
+            ctx.closePath();
+
+          ctx.fill(); ctx.stroke();
+
+ 
+
+          // Haste e Atuador
+
+            ctx.beginPath();
+
+            ctx.moveTo(x, y);
+
+            ctx.lineTo(x, y - 10);
+
+            ctx.stroke();
+
+            ctx.beginPath();
+
+          ctx.arc(x, y - 10, 4, Math.PI, 0);
+
+          ctx.fillStyle = '#64748b';
+
+          ctx.fill(); ctx.stroke();
+
+ 
+
+          // Etiqueta de Identificação
+
+            ctx.fillStyle = '#cbd5e1';
+
+            ctx.font = 'bold 8px monospace';
+
+          ctx.textAlign = 'center';
+
+          ctx.fillText(tag, x, y + 16);
+
+          ctx.fillText(value + '%', x, y + 25);
+
+          ctx.restore();
+
+        }
+
+ 
+
+        // Desenho do destino Cleaner (Círculo industrial metalizado)
+
+        function drawCleanerDest(x, y) {
+
+          ctx.save();
+
+          ctx.beginPath();
+
+          ctx.arc(x, y, 24, 0, Math.PI * 2);
+
+         
+
+          // Degradé para aspeto metalizado/3D
+
+            const grad = ctx.createRadialGradient(x, y, 4, x, y, 24);
+
+            grad.addColorStop(0, '#64748b');
+
+          grad.addColorStop(0.7, '#1e293b');
+
+          grad.addColorStop(1, '#0f172a');
+
+          ctx.fillStyle = grad;
+
+          ctx.strokeStyle = '#f87171'; // Cor vermelha de rejeito
+
+            ctx.lineWidth = 3;
+
+  
+
+        ctx.fill();
+
+          ctx.stroke();
+
+ 
+
+          // Texto interno
+
+            ctx.fillStyle = '#f8fafc';
+
+            ctx.font = 'bold 9px sans-serif';
+
+          ctx.textAlign = 'center';
+
+          ctx.textBaseline = 'middle';
+
+          ctx.fillText('CLEANER', x, y);
+
+          ctx.restore();
+
+      }
+
+ 
+
+      function drawDepurador(x, y, name, pdi, rejValPercent, motorOn, motorName, designRejPercent) {
+
+          const w = 140;
+
+            const h = 180;
+
+            // Tampa superior
+
+            ctx.fillStyle = '#64748b';
+
+          ctx.strokeStyle = '#334155';
+
+          ctx.lineWidth = 2;
+
+          ctx.beginPath();
+
+          ctx.arc(x + w/2, y, w/2, Math.PI, 0);
+
+          ctx.fill(); ctx.stroke();
+
+          ctx.fillStyle = '#475569';
+
+          ctx.fillRect(x + w/2 - 15, y - w/2 - 10, 30, 10);
+
+ 
+
+          // Corpo
+
+          const grad = ctx.createLinearGradient(x, y, x + w, y);
+
+          grad.addColorStop(0, '#cbd5e1');
+
+          grad.addColorStop(0.5, '#f8fafc');
+
+          grad.addColorStop(1, '#94a3b8');
+
+          ctx.fillStyle = grad;
+
+          ctx.fillRect(x, y, w, h);
+
+          ctx.strokeRect(x, y, w, h);
+
+ 
+
+          // Fundo
+
+          ctx.fillStyle = '#64748b';
+
+          ctx.beginPath();
+
+          ctx.moveTo(x, y + h); ctx.lineTo(x + w, y + h);
+
+          ctx.lineTo(x + w - 10, y + h + 20); ctx.lineTo(x + 10, y + h + 20);
+
+            ctx.closePath();
+
+          ctx.fill(); ctx.stroke();
+
+ 
+
+          // Motor (Vermelho se desligado, Verde se ligado)
+
+            ctx.fillStyle = '#475569';
+
+          ctx.fillRect(x + w/2 - 10, y + h + 20, 20, 15);
+
+          ctx.fillStyle = motorOn ? '#10b981' : '#ef4444';
+
+          ctx.strokeStyle = motorOn ? '#047857' : '#991b1b';
+
+          ctx.fillRect(x + w/2 - 30, y + h + 35, 60, 45);
+
+          ctx.strokeRect(x + w/2 - 30, y + h + 35, 60, 45);
+
+         
+
+          ctx.fillStyle = 'rgba(0,0,0,0.3)';
+
+          ctx.fillRect(x + w/2 - 30, y + h + 35, 60, 15);
+
+          ctx.fillStyle = 'white';
+
+          ctx.font = 'bold 11px sans-serif';
+
+          ctx.textAlign = 'center';
+
+          ctx.fillText(motorName, x + w/2, y + h + 46);
+
+          ctx.font = 'bold 18px sans-serif';
+
+          ctx.fillText('M', x + w/2, y + h + 70);
+
+ 
+
+          // Painéis PDI
+
+          ctx.fillStyle = '#f1f5f9';
+
+          ctx.strokeStyle = '#cbd5e1';
+
+         ctx.fillRect(x + 15, y + 15, w - 30, 40);
+
+          ctx.strokeRect(x + 15, y + 15, w - 30, 40);
+
+          ctx.fillStyle = '#334155';
+
+          ctx.font = 'bold 10px sans-serif';
+
+          ctx.fillText('PDI', x + w/2, y + 28);
+
+          ctx.font = 'bold 14px monospace';
+
+         
+
+          // Muda a cor da fonte do PDI se o depurador estiver bloqueado
+
+          ctx.fillStyle = pdi >= 5.0 ? '#ef4444' : '#0f172a';
+
+          ctx.fillText(pdi.toFixed(2) + ' Kgf/cm²', x + w/2, y + 45);
+
+ 
+
+          // Nome da Máquina
+
+            ctx.fillStyle = 'white';
+
+            ctx.fillRect(x, y + 70, w, 35);
+
+          ctx.fillStyle = '#0f172a';
+
+          ctx.font = 'bold 22px sans-serif';
+
+          ctx.fillText(name, x + w/2, y + 95);
+
+ 
+
+          // Painel Rejeito (%) - Agora exibe a indicação de percentagem estática do design quando ativo
+
+            ctx.fillStyle = '#f1f5f9';
+
+          ctx.fillRect(x + 20, y + 125, w - 40, 40);
+
+          ctx.strokeRect(x + 20, y + 125, w - 40, 40);
+
+          ctx.fillStyle = '#334155';
+
+          ctx.font = 'bold 9px sans-serif';
+
+          ctx.fillText('REJEITO', x + w/2, y + 138);
+
+         
+
+          // Exibe a percentagem estática (ex: 24%, 32%, 22%) apenas se houver rejeito flutuando, caso contrário 0.00%
+
+            ctx.fillStyle = '#0f172a';
+
+          ctx.font = 'bold 13px monospace';
+
+          const displayPercent = rejValPercent > 0 ? designRejPercent.toFixed(2) : "0.00";
+
+          ctx.fillText(displayPercent + ' %', x + w/2 - 5, y + 155);
+
+         
+
+          ctx.fillStyle = rejValPercent > 0 ? '#10b981' : '#94a3b8';
+
+          ctx.beginPath();
+
+          ctx.arc(x + w/2 + 25, y + 150, 4, 0, Math.PI*2);
+
+          ctx.fill();
+
+ 
+
+            // Bocais de entrada e saída
+
+            const drawBocal = (bx, by, num) => {
+
+              ctx.fillStyle = '#94a3b8';
+
+              ctx.fillRect(bx > x ? x+w : x-10, by+5, 10, 15);
+
+              ctx.fillStyle = '#e87722';
+
+              ctx.fillRect(bx, by, 20, 25);
+
+              ctx.fillStyle = 'black';
+
+              ctx.font = '900 14px sans-serif';
+
+              ctx.fillText(num, bx + 10, by + 18);
+
+          };
+
+          drawBocal(x - 30, y + 130, '1'); // Inlet
+
+          drawBocal(x - 30, y + 25, '2');  // Accept
+
+          drawBocal(x + w + 10, y + 130, '3'); // Bottom Right
+
+          drawBocal(x + w + 10, y + 25, '4');  // Top Right
+
+      }
+
+ 
+
+      function drawTank(x, y, w, h, level, title, color) {
+
+          ctx.fillStyle = '#1e293b';
+
+          ctx.strokeStyle = color;
+
+          ctx.lineWidth = 2;
+
+          ctx.fillRect(x, y, w, h);
+
+          ctx.strokeRect(x, y, w, h);
+
+ 
+
+          const fillHeight = (level / 100) * h;
+
+          ctx.fillStyle = color;
+
+          ctx.globalAlpha = 0.8;
+
+          ctx.fillRect(x, y + h - fillHeight, w, fillHeight);
+
+          ctx.globalAlpha = 1.0;
+
+ 
+
+          ctx.fillStyle = 'white';
+
+          ctx.font = 'bold 12px sans-serif';
+
+          ctx.textAlign = 'center';
+
+          ctx.fillText(title, x + w/2, y + 20);
+
+          ctx.font = 'bold 14px monospace';
+
+          ctx.fillText(Math.floor(level) + '%', x + w/2, y + h - 10);
+
+      }
+
+ 
+
+        // --- LOOP DE ANIMAÇÃO DO CANVAS ---
+
+        function drawLoop() {
+
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          const flows = getFlows();
+
+          const sensors = calcSensors(flows);
+
+ 
+
+          // Incremento do offset do tracejado do fluxo para efeito visual
+
+            state.offset = (state.offset + 0.15) % 100;
+
+ 
+
+          // --- TNQ-006 SAIDA (BBA.118) ---
+
+          drawPipe([{x:70, y:170}, {x:70, y:210}, {x:20, y:210}], '#10b981', 10, state.bba118On && state.tnq006Level > 0, false);
+
+ 
+
+          // --- D10 PIPES ---
+
+          drawPipe([{x:70, y:380}, {x:190, y:380}], '#fcd34d', 10, flows.flowD10_In, false); // BBA04 -> D10 Pos 1
+
+         
+
+          // D10 Saída 2 (Aceite) -> Nova Rota baseada no esboço: sobe na vertical e entra na lateral do TNQ-006
+
+            drawPipe([{x:190, y:275}, {x:190, y:130}, {x:130, y:130}], '#10b981', 10, flows.flowD10_Acc, false);
+
+            
+
+            drawPipe([{x:390, y:430}, {x:390, y:380}, {x:370, y:380}], '#93c5fd', 6, flows.flowD10_Seal, true); // Selagem (FC-007) -> D10 Pos 3
+
+            drawPipe([{x:370, y:275}, {x:450, y:275}, {x:450, y:350}], '#fdba74', 8, flows.flowD10_Rej, false); // D10 Pos 4 -> BBA113
+
+ 
+
+            // --- D08 PIPES ---
+
+          drawPipe([{x:450, y:380}, {x:590, y:380}], '#fdba74', 10, flows.flowD08_In, false); // BBA113 -> D08 Pos 1
+
+         
+
+          // D08 Aceite (Pos 2) -> Saída livre
+
+          drawPipe([{x:590, y:275}, {x:540, y:275}, {x:540, y:100}, {x:470, y:100}], '#10b981', 10, flows.flowD08_AccMain, false);
+
+          
+
+          // D08 Rejeito Principal (Pos 4) -> Vai para BBA.115
+
+            drawPipe([{x:770, y:275}, {x:850, y:275}, {x:850, y:350}], '#fca5a5', 8, flows.flowD08_RejMain, false);
+
+           
+
+            // D08 Selagem (FC-010) (Entra na Pos 3)
+
+            drawPipe([{x:790, y:430}, {x:790, y:380}, {x:770, y:380}], '#93c5fd', 6, flows.flowD08_Seal, true);
+
+ 
+
+            // --- DC4 PIPES ---
+
+            drawPipe([{x:850, y:380}, {x:990, y:380}], '#fcd34d', 10, flows.flowDC4_In, false); // BBA.115 -> DC4 Pos 1
+
+ 
+
+            // DC4 Aceite (Pos 2) com PC-017 -> Retorna para BBA.113
+
+            drawPipe([{x:990, y:275}, {x:930, y:275}, {x:930, y:40}, {x:450, y:40}, {x:450, y:350}], '#10b981', 8, flows.flowDC4_Acc, false);
+
+ 
+
+            // DC4 Rejeito (Pos 4) -> Vai para o Cleaner
+
+            drawPipe([{x:1170, y:275}, {x:1250, y:275}, {x:1250, y:140}], '#fca5a5', 8, flows.flowDC4_Rej, false);
+
+ 
+
+            // DC4 Selagem (Pos 3)
+
+            drawPipe([{x:1190, y:430}, {x:1190, y:380}, {x:1170, y:380}], '#93c5fd', 6, flows.flowDC4_Seal, true);
+
+ 
+
+            // 2. DESENHAR MÁQUINAS (Depuradores com valores de Rejeito estáticos solicitados: D10 = 24%, D08 = 32%, DC4 = 22%)
+
+            drawDepurador(220, 240, "D10", sensors.pdiD10, sensors.rejD10, state.mot116On, "MOT.116", 24);
+
+          drawDepurador(620, 240, "D08", sensors.pdiD08, sensors.rejD08, state.mot114On, "MOT.114", 32);
+
+          drawDepurador(1020, 240, "DC4", sensors.pdiDC4, sensors.rejDC4, state.mot112On, "MOT.112", 22);
+
+ 
+
+          // 3. DESENHAR DESTINOS E TANQUES
+
+            drawTank(30, 50, 100, 120, state.tnq006Level, "TNQ-006", "#16a34a");
+
+            // Círculo com o destino final CLEANER no fim da linha de rejeito do DC4
+
+            drawCleanerDest(1250, 140);
+
+ 
+
+            // 4. DESENHAR SÍMBOLOS DE VÁLVULAS EM TEMPO REAL NO CANVAS
+
+            drawControlValveSymbol(130, 380, "PC-013", state.pc013);
+
+            drawControlValveSymbol(140, 130, "LV-012", state.lv012); // reposicionada na nova tubagem horizontal
+
+            drawControlValveSymbol(410, 275, "FC-006", state.fc006);
+
+          drawControlValveSymbol(390, 405, "FC-007", state.fc007);
+
+         
+
+          drawControlValveSymbol(515, 100, "HC-016", state.hc016);
+
+          drawControlValveSymbol(810, 275, "FC-009", state.fc009);
+
+          drawControlValveSymbol(790, 405, "FC-010", state.fc010);
+
+           
+
+            // Subido PC-017 de y:100 para y:80 para afastar ainda mais da máquina DC4
+
+            drawControlValveSymbol(930, 80, "PC-017", state.pc017);
+
+          
+
+          drawControlValveSymbol(1210, 275, "FC-012", state.fc012);
+
+          drawControlValveSymbol(1190, 405, "FC-013", state.fc013);
+
+ 
+
+          requestAnimationFrame(drawLoop);
+
+      }
+
+ 
+
+        // --- SISTEMA DE INICIALIZAÇÃO SEGURA DO DOM ---
+
+        function initSimulation() {
+
+            // Inicialização do Canvas e Contexto Gráfico de forma segura
+
+            canvas = document.getElementById('simCanvas');
+
+            ctx = canvas.getContext('2d');
+
+ 
+
+            // Configuração e escuta para cada Slider / Caixa Numérica
+
+            binds.forEach(id => {
+
+              const slider = document.getElementById(id);
+
+              const numInput = document.getElementById('num-' + id);
+
+ 
+
+              if (slider) {
+
+                  slider.addEventListener('input', (e) => {
+
+                      if (id === 'lv012' && state.lv012Auto) return;
+
+                      if (id === 'pc017' && state.pc017Auto) return;
+
+                      updateStateValue(id, e.target.value);
+
+                  });
+
+              }
+
+ 
+
+              if (numInput) {
+
+                 numInput.addEventListener('input', (e) => {
+
+                      if (id === 'lv012' && state.lv012Auto) return;
+
+                      if (id === 'pc017' && state.pc017Auto) return;
+
+                      updateStateValue(id, e.target.value);
+
+                  });
+
+              }
+
+          });
+
+ 
+
+          // Set Point Input (TNQ-006)
+
+          const spInput = document.getElementById('sp-tnq006');
+
+          if (spInput) {
+
+              spInput.addEventListener('change', (e) => {
+
+                  state.tnq006SP = parseInt(e.target.value);
+
+              });
+
+            }
+
+ 
+
+            // Botão Controlo Auto LV012
+
+            const btnAutoLv = document.getElementById('btn-auto-lv012');
+
+            const sliderLv = document.getElementById('lv012');
+
+            const numLv = document.getElementById('num-lv012');
+
+            if (btnAutoLv) {
+
+                btnAutoLv.onclick = () => {
+
+                    state.lv012Auto = !state.lv012Auto;
+
+                  btnAutoLv.textContent = state.lv012Auto ? 'AUT' : 'MAN';
+
+                  btnAutoLv.classList.toggle('active', state.lv012Auto);
+
+                  if (sliderLv) sliderLv.disabled = state.lv012Auto;
+
+                  if (numLv) numLv.disabled = state.lv012Auto;
+
+              };
+
+            }
+
+ 
+
+            // Botão Controlo Auto PC017
+
+            const btnAutoPc = document.getElementById('btn-auto-pc017');
+
+            const sliderPc = document.getElementById('pc017');
+
+            const numPc = document.getElementById('num-pc017');
+
+            if (btnAutoPc) {
+
+                btnAutoPc.onclick = () => {
+
+                  state.pc017Auto = !state.pc017Auto;
+
+                  btnAutoPc.textContent = state.pc017Auto ? 'AUT' : 'MAN';
+
+                  btnAutoPc.classList.toggle('active', state.pc017Auto);
+
+                  if (sliderPc) sliderPc.disabled = state.pc017Auto;
+
+                  if (numPc) numPc.disabled = state.pc017Auto;
+
+              };
+
+            }
+
+ 
+
+            // Botão de RESET Geral do Sistema (Condições de Fábrica)
+
+            const btnReset = document.getElementById('btn-reset');
+
+          if (btnReset) {
+
+                btnReset.onclick = () => {
+
+                    // Reposição de todos os estados lógicos e analógicos
+
+                    state.bba04On = false;
+
+                  state.bba113On = false;
+
+            state.bba115On = false;
+
+            state.mot116On = false;
+
+            state.mot114On = false;
+
+            state.mot112On = false;
+
+ 
+
+            // Limpa estados e temporizadores de intertravamento para permitir recomeçar a sequência
+
+            state.targetReachedD10 = false;
+
+            state.targetReachedD08 = false;
+
+            state.targetReachedDC4 = false;
+
+            state.blockedD10 = false; state.timerD10 = 0;
+
+            state.blockedD08 = false; state.timerD08 = 0;
+
+            state.blockedDC4 = false; state.timerDC4 = 0;
+
+ 
+
+            // Limpa classes ativas das bombas intermediárias
+
+            const b113 = document.getElementById('btn-bba113');
+
+                 
+
+                  state.hc016 = 20;
+
+                  state.hc011 = 80;
+
+                  state.fc009 = 0;
+
+                  state.fc010 = 0;
+
+                 
+
+                  state.pc017 = 60;
+
+                  state.pc017Auto = true;
+
+                 
+
+                  state.fc012 = 0;
+
+                  state.fc013 = 0;
+
+ 
+
+                  state.pc013 = 0;
+
+                  state.lv012 = 0;
+
+                  state.fc006 = 0;
+
+                  state.fc007 = 0;
+
+
+                  state.tnq006Level = 60;
+
+                  state.tnq006SP = 60;
+
+                 
+
+                  // Reset dos estados de entupimento
+
+                  state.blockedD10 = false; state.timerD10 = 0;
+
+                  state.blockedD08 = false; state.timerD08 = 0;
+
+                  state.blockedDC4 = false; state.timerDC4 = 0;
+
+                  state.targetReachedD10 = false;
+
+                  state.targetReachedD08 = false;
+
+                  state.targetReachedDC4 = false;
+
+ 
+
+                    // Repor classes ativas CSS dos botões HTML
+
+                    const btnB04 = document.getElementById('btn-bba04');
+
+                  if (btnB04) btnB04.classList.remove('active-pump');
+
+ 
+
+                  const btnB118 = document.getElementById('btn-bba118');
+
+                  if (btnB118) btnB118.classList.remove('active-pump-dc4');
+
+ 
+
+                  const btnB113 = document.getElementById('btn-bba113');
+
+                  if (btnB113) btnB113.classList.remove('active-pump-d08');
+
+ 
+
+                  const btnB115 = document.getElementById('btn-bba115');
+
+                  if (btnB115) btnB115.classList.remove('active-pump-dc4');
+
+ 
+
+                  // Reinicializar estados visuais de automação
+
+                    if (btnAutoLv) {
+
+                        btnAutoLv.textContent = 'MAN';
+
+                      btnAutoLv.classList.remove('active');
+
+                  }
+
+                  if (sliderLv) sliderLv.disabled = false;
+
+                  if (numLv) numLv.disabled = false;
+
+ 
+
+                  if (btnAutoPc) {
+
+                      btnAutoPc.textContent = 'AUT';
+
+                      btnAutoPc.classList.add('active');
+
+                  }
+
+                  if (sliderPc) sliderPc.disabled = true;
+
+                  if (numPc) numPc.disabled = true;
+
+ 
+
+                  // Sincronizar todos os elementos com o estado de fábrica
+
+                    binds.forEach(id => {
+
+                      updateStateValue(id, state[id]);
+
+                  });
+
+                    // Forçar o valor no input numérico do Set Point
+
+                    if (spInput) spInput.value = 60;
+
+                    showMessage("Simulação redefinida para os parâmetros iniciais de segurança!", "success");
+
+                };
+
+            }
+
+ 
+
+            // Botão Sequência de Arranque Geral
+
+            const btnSeq = document.getElementById('btn-seq');
+
+            if (btnSeq) {
+
+              btnSeq.onclick = () => {
+
+                  if (state.fc007 === 100 && state.fc010 === 100 && state.fc013 === 100) {
+
+                      showMessage("Iniciando Arranque: A ligar MOT.112...", "success");
+
+                      btnSeq.disabled = true;
+
+                     
+
+                      setTimeout(() => {
+
+                          state.mot112On = true;
+
+                          showMessage("A ligar MOT.114...", "success");
+
+                      }, 1500);
+
+                      setTimeout(() => {
+
+                          state.mot114On = true;
+
+                          showMessage("A ligar MOT.116...", "success");
+
+                      }, 3000);
+
+                      setTimeout(() => {
+
+                          state.mot116On = true;
+
+                          showMessage("A arrancar BBA.115...", "success");
+
+                      }, 4500);
+
+                      setTimeout(() => {
+
+                          state.bba115On = true;
+
+                          const btnBba115 = document.getElementById('btn-bba115');
+
+                          if (btnBba115) btnBba115.classList.add('active-pump-dc4');
+
+                          showMessage("A arrancar BBA.113...", "success");
+
+                      }, 6000);
+
+                      setTimeout(() => {
+
+                          state.bba113On = true;
+
+                          const btnBba113 = document.getElementById('btn-bba113');
+
+                          if (btnBba113) btnBba113.classList.add('active-pump-d08');
+
+                          showMessage("Colocando LV.012 em AUT...", "success");
+
+                      }, 7500);
+
+                      setTimeout(() => {
+
+                          state.lv012Auto = true;
+
+                          if (btnAutoLv) {
+
+                              btnAutoLv.textContent = 'AUT';
+
+                              btnAutoLv.classList.add('active');
+
+                          }
+
+                          if (sliderLv) sliderLv.disabled = true;
+
+                          if (numLv) numLv.disabled = true;
+
+                         
+
+                          // CORREÇÃO: PC-013 fica sempre 0% ao concluir a sequência.
+
+            // O operador deve abri-la manualmente para que haja fluxo para o D10.
+
+            updateStateValue('pc013', 0);
+
+            showMessage("Sequência Concluída! Mantenha PC-013 0% e ligue a BBA.04.", "success");
+
+            btnSeq.disabled = false;
+
+        }, 9000);
+
+    } else {
+
+        showMessage("ERRO: Abra as 3 válvulas de selagem (BBA.012) a 100% antes de iniciar!", "error");
+
+    }
+
+                };
+
+            }
+
+ 
+
+ 
+
+ 
+
+ 
+
+           // Botão BBA.04 com Lógica de Interlocks e Indicação Verde
+
+const btnBba04 = document.getElementById('btn-bba04');
+
+if (btnBba04) {
+
+    btnBba04.onclick = (e) => {
+
+        const equipsOn = state.mot112On && state.mot114On && state.mot116On && state.bba113On && state.bba115On;
+
+        const valvesOk = state.fc006 === 40 && state.fc009 === 50 && state.fc012 === 60 && state.pc017 >= 70 && state.hc016 === 20 && state.hc011 === 80 && state.pc013 === 0;
+
+        const pc017AutOk = state.pc017Auto === true;
+
+ 
+
+        // --- DESLIGAMENTO DA BOMBA ---
+
+        if (state.bba04On) {
+
+            state.bba04On = false;
+
+            state.pc013 = 0; // Garante PC-013 em zero ao desligar
+
+           
+
+            // Ao desligar, permite que a mensagem possa ser mostrada novamente numa próxima partida
+
+            state.depuracaoOkMostrada = false;
+
+            
+
+            // REMOVE A COR VERDE (Volta ao estilo original/cinza do sinóptico)
+
+            btnBba04.style.backgroundColor = "";
+
+            btnBba04.style.color = "";
+
+            btnBba04.classList.remove('active-pump');
+
+            return;
+
+        }
+
+       
+
+        // --- TESTES DE INTERLOCK PARA PARTIDA ---
+
+        if (!state.mot116On) {
+
+            showMessage("INTERLOCK BBA.04: O MOT.116 deve estar obrigatoriamente ligado!", "error");
+
+            return;
+
+        }
+
+       
+
+        if (!equipsOn) {
+
+            showMessage("INTERLOCK BBA.04: Todos os motores e bombas dos depuradores devem estar ligados primeiro!", "error");
+
+            return;
+
+        }
+
+       
+
+        if (!valvesOk || !pc017AutOk) {
+
+            showMessage("INTERLOCK BBA.04: Ajuste obrigatório - FC006=40%, FC009=50%, FC012=60%, PC017>=70% (em AUT), PC013=0%, HC016=20%, HC011=80%", "error");
+
+            return;
+
+        }
+
+ 
+
+        // --- PARTIDA COM SUCESSO ---
+
+        state.bba04On = true;
+
+        
+
+        // APLICA A COR VERDE INDUSTRIAL NO BOTÃO (#10b981)
+
+        btnBba04.style.backgroundColor = "#10b981";
+
+        btnBba04.style.color = "#ffffff";
+
+        btnBba04.classList.add('active-pump');
+
+ 
+
+        // =========================================================================
+
+        // ACRESCENTADO: DISPARO DA INDICAÇÃO VERDE NO CONSOLE NO MOMENTO DO CLIQUE
+
+        // =========================================================================
+
+        const timestamp = new Date().toLocaleTimeString();
+
+        const consoleBox = document.getElementById('sistema-console') || document.getElementById('console');
+
+ 
+
+        // 1. Envia para a função nativa de logs do sistema
+
+        if (typeof logEvent === "function") {
+
+            logEvent(`✅ DEPURAÇÃO OK - Sistema operando normalmente.`, "success");
+
+        }
+
+        
+
+        // 2. Força a injeção do texto em verde com !important diretamente no HTML do console
+
+        if (consoleBox) {
+
+            consoleBox.innerHTML = `<div style="color: #10b981 !important; font-weight: bold !important; margin-bottom: 4px;">[${timestamp}] ✅ DEPURAÇÃO OK</div>` + consoleBox.innerHTML;
+
+        }
+
+       
+
+        // Mostra o texto verde no meio da tela
+
+        if (typeof showMessage === "function") {
+
+            showMessage("Depuração operando em condições normais de processo.", "success");
+
+        }
+
+ 
+
+        // Limpa travas antigas de alarmes dos vasos para o processo rodar limpo
+
+        state.blockedD10 = false;
+
+        state.blockedD08 = false;
+
+        state.blockedDC4 = false;
+
+        state.timerD10 = 0;
+
+        state.timerD08 = 0;
+
+        state.timerDC4 = 0;
+
+        state.depuracaoOkMostrada = true;
+
+        // =========================================================================
+
+   };
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+           // Botão BBA.118 (Bomba de drenagem para o TNQ-006)
+
+            const btnBba118 = document.getElementById('btn-bba118');
+
+            if (btnBba118) {
+
+                btnBba118.onclick = (e) => {
+
+                    // Se a bomba está desligada e tenta ligar com nível baixo
+
+                    if (!state.bba118On && state.tnq006Level <= 10) {
+
+                        showMessage("Nível do TNQ.006 muito baixo para ligar BBA.118!", "error");
+
+                        adicionarLog("INTERLOCK: Nível do TNQ.006 muito baixo para ligar BBA.118!", "error");
+
+                        return;
+
+                    }
+
+                   
+
+                    // Alterna o estado da bomba (liga/desliga)
+
+                    state.bba118On = !state.bba118On;
+
+                    e.target.classList.toggle('active-pump-dc4');
+
+ 
+
+                    // Registra a ação exata no seu console de logs
+
+                    if (state.bba118On) {
+
+                        adicionarLog("BBA.118 ligada com sucesso.", "success");
+
+                    } else {
+
+                        adicionarLog("BBA.118 desligada pelo operador.", "info");
+
+                    }
+
+                };
+
+            }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            // Outros botões de acionamento manual direto (Todos com lógica de reinício caso sejam desligados)
+
+const btnBba113 = document.getElementById('btn-bba113');
+
+if (btnBba113) {
+
+    btnBba113.onclick = (e) => {
+
+        state.bba113On = !state.bba113On;
+
+        e.target.classList.toggle('active-pump-d08', state.bba113On);
+
+        
+
+        if (state.bba113On) {
+
+            // ACRESCENTADO: Ao ligar, limpa travas de alarme para dar tempo de operar
+
+            state.blockedD08 = false;
+
+            state.timerD08 = 0;
+
+        } else {
+
+            triggerSequenceReset("BBA.113");
+
+        }
+
+    };
+
+}
+
+ 
+
+const btnBba115 = document.getElementById('btn-bba115');
+
+if (btnBba115) {
+
+    btnBba115.onclick = (e) => {
+
+        state.bba115On = !state.bba115On;
+
+        e.target.classList.toggle('active-pump-dc4', state.bba115On);
+
+        
+
+        if (state.bba115On) {
+
+            // ACRESCENTADO: Ao ligar, limpa travas de alarme para dar tempo de operar
+
+            state.blockedDC4 = false;
+
+            state.timerDC4 = 0;
+
+        } else {
+
+            triggerSequenceReset("BBA.115");
+
+        }
+
+    };
+
+}
+
+ 
+
+const btnMot116 = document.getElementById('btn-mot116');
+
+if (btnMot116) {
+
+    btnMot116.onclick = () => {
+
+        state.mot116On = !state.mot116On;
+
+        if (state.mot116On) {
+
+            // ACRESCENTADO: Dá fôlego ao alarme do D10
+
+            state.blockedD10 = false;
+
+            state.timerD10 = 0;
+
+        } else {
+
+            triggerSequenceReset("MOT.116 (D10)");
+
+        }
+
+    };
+
+}
+
+ 
+
+const btnMot114 = document.getElementById('btn-mot114');
+
+if (btnMot114) {
+
+    btnMot114.onclick = () => {
+
+        state.mot114On = !state.mot114On;
+
+        if (state.mot114On) {
+
+            // ACRESCENTADO: Dá fôlego ao alarme do D08
+
+            state.blockedD08 = false;
+
+            state.timerD08 = 0;
+
+        } else {
+
+            triggerSequenceReset("MOT.114 (D08)");
+
+        }
+
+    };
+
+}
+
+ 
+
+const btnMot112 = document.getElementById('btn-mot112');
+
+if (btnMot112) {
+
+    btnMot112.onclick = () => {
+
+        state.mot112On = !state.mot112On;
+
+        if (state.mot112On) {
+
+            // ACRESCENTADO: Dá fôlego ao alarme do DC4
+
+            state.blockedDC4 = false;
+
+            state.timerDC4 = 0;
+
+        } else {
+
+            triggerSequenceReset("MOT.112 (DC4)");
+
+        }
+
+    };
+
+}
+
+ 
+
+// Sincroniza todos os inputs visuais com os valores predefinidos do estado
+
+binds.forEach(id => {
+
+    updateStateValue(id, state[id]);
+
+});
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// --- ATUALIZAÇÃO DA DINÂMICA FÍSICA DO SISTEMA ---
+
+            setInterval(() => {
+
+                const flows = getFlows();
+
+               
+
+                // LÓGICA DE RISCO DE ENTUPIMENTO E DISPARO POR PRESSÃO
+
+ 
+
+                // Armamento dos Intertravamentos (Só após o operador abrir as válvulas ao nível nominal)
+
+                if (state.fc006 >= 40) state.targetReachedD10 = true;
+
+                if (state.fc009 >= 50) state.targetReachedD08 = true;
+
+                if (state.fc012 >= 60) state.targetReachedDC4 = true;
+
+ 
+
+                // =========================================================================
+
+                // CORREÇÃO: DIRECIONAMENTO CORRETO PARA O CONSOLE DO SINÓPTICO
+
+                // =========================================================================
+
+                const depuracaoAtiva = state.mot112On &&
+
+                                       state.mot114On &&
+
+                                       state.mot116On &&
+
+                                       state.bba113On &&
+
+                                       state.bba115On;
+
+ 
+
+                // Tenta encontrar o elemento do console por IDs comuns se a função logEvent não existir
+
+                const consoleBox = document.getElementById('sistema-console') || document.getElementById('console');
+
+ 
+
+                if (depuracaoAtiva) {
+
+                    // Força a limpeza de qualquer cor vermelha residual nos blocos
+
+                    state.blockedD10 = false;
+
+                    state.blockedD08 = false;
+
+                    state.blockedDC4 = false;
+
+                    state.timerD10 = 0;
+
+                    state.timerD08 = 0;
+
+                    state.timerDC4 = 0;
+
+ 
+
+                    if (!state.depuracaoOkMostrada) {
+
+                        const timestamp = new Date().toLocaleTimeString();
+
+                        
+
+                        // 1. Tenta usar a sua função padrão de logs do sistema (Maneira mais garantida)
+
+                        if (typeof logEvent === "function") {
+
+                            logEvent("✅ DEPURAÇÃO OK - Sistema operando em condições normais.", "success");
+
+                        }
+
+                        // 2. Se não existir a função, injeta direto no HTML do console encontrado
+
+                        else if (consoleBox) {
+
+                            consoleBox.innerHTML = `<div style="color: #10b981; font-weight: bold; margin-bottom: 4px;">[${timestamp}] ✅ DEPURAÇÃO OK</div>` + consoleBox.innerHTML;
+
+                        }
+
+                       
+
+                        // Escreve o texto verde no meio da tela (o que já funcionou)
+
+                        if (typeof showMessage === "function") {
+
+                            showMessage("Depuração operando em condições normais de processo.", "success");
+
+                        }
+
+ 
+
+                        state.depuracaoOkMostrada = true;
+
+                    }
+
+                } else {
+
+                    state.depuracaoOkMostrada = false;
+
+                }
+
+            
+
+ 
+
+// Adicione isto no final do setInterval da física para atualizar o visual do botão continuamente:
+
+const elementoBomba04 = document.getElementById('btn-bba04');
+
+if (elementoBomba04) {
+
+    if (state.bba04On) {
+
+        elementoBomba04.style.backgroundColor = "#10b981";
+
+        elementoBomba04.style.color = "#ffffff";
+
+    } else {
+
+        elementoBomba04.style.backgroundColor = ""; // Cor padrão quando desligada
+
+        elementoBomba04.style.color = "";
+
+    }
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                // === D10: Análise Válvulas FC-006 e LV-012 ===
+
+let d10BlockedByRej = state.targetReachedD10 && state.fc006 < 30;
+
+let d10BlockedByLv = state.lv012Auto && state.bba04On && state.lv012 < 20;
+
+ 
+
+// Nova verificação direta garantindo que o valor é um número
+
+let currentLv012 = Number(state.lv012);
+
+let d10HighFlowByLv = state.bba04On && currentLv012 > 80;
+
+ 
+
+// --- TESTE 1: SE PASSAR DE 80% (MANUAL OU AUTOMÁTICO) ---
+
+if (state.mot116On && d10HighFlowByLv) {
+
+    state.blockedD10 = true;
+
+    let modo = state.lv012Auto ? "AUT" : "MAN";
+
+   
+
+    // Força a mensagem na tela sem deixar nenhum outro código apagar
+
+    showMessage(`ALERTA CRÍTICO D10: LV.012 > 80% em ${modo}! Pressão alta, motor disparará em 10s.`, "error");
+
+   
+
+    state.timerD10++;
+
+    if (state.timerD10 >= 10) {
+
+        state.mot116On = false;
+
+        state.blockedD10 = false;
+
+        state.timerD10 = 0;
+
+        triggerSequenceReset("MOT.116 (D10) por FLUXO ACIMA DE 80%");
+
+    }
+
+}
+
+// --- TESTE 2: SE CAIR NOS OUTROS DOIS BLOQUEIOS ANTIGOS ---
+
+else if (state.mot116On && (d10BlockedByRej || d10BlockedByLv)) {
+
+    if (!state.blockedD10) {
+
+        state.blockedD10 = true;
+
+        let cause = d10BlockedByRej ? "FC-006 < 30%" : "LV.012 < 20% em AUT";
+
+        showMessage(`ALERTA CRÍTICO D10: ${cause}! Pressão alta, motor disparará em 10s.`, "error");
+
+    }
+
+   
+
+    state.timerD10++;
+
+    if (state.timerD10 >= 10) {
+
+        state.mot116On = false;
+
+        state.blockedD10 = false;
+
+        state.timerD10 = 0;
+
+        triggerSequenceReset("MOT.116 (D10) por ANOMALIA DE OPERAÇÃO");
+
+    }
+
+}
+
+// --- SE TUDO ESTIVER NORMAL ---
+
+else {
+
+    if (state.blockedD10) {
+
+        showMessage("D10: Fluxo e pressão normalizados.", "success");
+
+    }
+
+    state.blockedD10 = false;
+
+    // Só zera o timer se nenhum dos alarmes estiver ativo
+
+    if (!d10HighFlowByLv && !d10BlockedByRej && !d10BlockedByLv) {
+
+        state.timerD10 = 0;
+
+    }
+
+}
+
+ 
+
+              // === D08: Análise Válvula FC-009, FC-006 e PC-017 ===
+
+let d08BlockedByFc009 = state.targetReachedD08 && state.fc009 < 30;
+
+ 
+
+// Condições existentes corrigidas: Garante que lê como número e valida limites reais
+
+let d08HighPressureByFc006 = state.mot114On && Number(state.fc006) > 60;
+
+let d08HighPressureByPc017 = state.mot114On && Number(state.pc017) > 80; // CORRIGIDO: PC-017 no lugar do PC-007
+
+ 
+
+// --- TESTE 1: VALIDAÇÃO DAS PRESSÕES ALTAS / SOBRECARGAS (PC-017 E FC-006) ---
+
+if (d08HighPressureByFc006 || d08HighPressureByPc017) {
+
+    state.blockedD08 = true;
+
+   
+
+    // Define a mensagem dinâmica na tela dependendo de qual instrumento causou a falha
+
+    let msgD08 = "ALERTA CRÍTICO D08: ";
+
+    if (d08HighPressureByPc017) {
+
+        msgD08 += "Pressão PC-017 > 80%! Limite do vaso excedido.";
+
+    } else {
+
+        msgD08 += "Válvula FC-006 > 60%! Pressão alta na entrada.";
+
+    }
+
+       
+
+    showMessage(`${msgD08} Motor disparará em 10s.`, "error");
+
+   
+
+    state.timerD08++;
+
+    if (state.timerD08 >= 10) {
+
+        state.mot114On = false; // Força desligamento do motor e para a depuração
+
+        state.blockedD08 = false;
+
+        state.timerD08 = 0;
+
+       
+
+        // Identifica o motivo exato no reset da sequência para o histórico
+
+        let motivoReset = "PRESSÃO ALTA D08";
+
+        if (d08HighPressureByPc017) motivoReset = "PC-017 > 80%";
+
+        else if (d08HighPressureByFc006) motivoReset = "FC-006 > 60%";
+
+       
+
+        triggerSequenceReset(`MOT.114 (D08) por ${motivoReset}`);
+
+    }
+
+}
+
+// --- TESTE 2: SE CAIR NO BLOQUEIO ANTIGO DA FC-009 < 30% ---
+
+else if (state.mot114On && d08BlockedByFc009) {
+
+    if (!state.blockedD08) {
+
+        state.blockedD08 = true;
+
+        showMessage("ALERTA CRÍTICO D08: Válvula FC-009 < 30%! Pressão alta, motor disparará em 10s.", "error");
+
+    }
+
+   
+
+    state.timerD08++;
+
+    if (state.timerD08 >= 10) {
+
+        state.mot114On = false;
+
+        state.blockedD08 = false;
+
+        state.timerD08 = 0;
+
+        triggerSequenceReset("MOT.114 (D08) por ALTA PRESSÃO (FC-009 < 30%)");
+
+    }
+
+}
+
+// --- SE TUDO ESTIVER NORMAL NO D08 ---
+
+else {
+
+    if (state.blockedD08) {
+
+        showMessage("D08: Fluxo de rejeito normalizado.", "success");
+
+    }
+
+    state.blockedD08 = false;
+
+   
+
+    // Só zera o timer se nenhuma das falhas do D08 estiver ativa
+
+    if (!d08HighPressureByFc006 && !d08HighPressureByPc017 && !d08BlockedByFc009) {
+
+        state.timerD08 = 0;
+
+    }
+
+}
+
+ 
+
+                // === DC4: Análise Válvulas FC-012 e PC-017 ===
+
+let dc4BlockedByRej = state.targetReachedDC4 && state.fc012 < 30;
+
+let dc4BlockedByAcc = state.pc017 < 60;
+
+ 
+
+// Nova condição: Garante a leitura como número e valida se FC-012 > 70
+
+let dc4LowPressureByFc012 = state.mot112On && Number(state.fc012) > 70;
+
+ 
+
+// ACRESCENTADO: Nova condição para a válvula de entrada FC-009 > 70
+
+let dc4HighPressureByFc009 = state.mot112On && Number(state.fc009) > 70;
+
+ 
+
+// --- TESTE 1: SE A VALVULA FC-012 PASSAR DE 70% OU A FC-009 PASSAR DE 70% (ACRESCENTADO) ---
+
+if (dc4LowPressureByFc012 || dc4HighPressureByFc009) {
+
+    state.blockedDC4 = true;
+
+   
+
+    // Define a mensagem dinâmica dependendo de qual válvula causou o alarme
+
+    let msgDC4 = dc4HighPressureByFc009
+
+        ? "ALERTA CRÍTICO DC4: ALARME PRESSÃO ALTA DC04, SOBRECARGA PELA FC-009 > 70%."
+
+        : "ALERTA CRÍTICO DC4: ALARME PRESSÃO BAIXA DC04, ENTUPIMENTO NO CLEANER (FC-012 > 70%).";
+
+       
+
+    showMessage(`${msgDC4} Motor disparará em 10s.`, "error");
+
+   
+
+    state.timerDC4++;
+
+    if (state.timerDC4 >= 10) {
+
+        state.mot112On = false; // Força desligamento do motor
+
+        state.blockedDC4 = false;
+
+        state.timerDC4 = 0;
+
+       
+
+        // Identifica o motivo exato no reset da sequência
+
+        let motivoReset = dc4HighPressureByFc009 ? "SOBRECARGA (FC-009 > 70%)" : "ENTUPIMENTO NO CLEANER (FC-012 > 70%)";
+
+        triggerSequenceReset(`MOT.112 (DC4) por ${motivoReset}`);
+
+    }
+
+}
+
+// --- TESTE 2: SE CAIR NOS BLOQUEIOS ANTIGOS DE PRESSÃO ALTA ---
+
+else if (state.mot112On && (dc4BlockedByRej || dc4BlockedByAcc)) {
+
+    if (!state.blockedDC4) {
+
+        state.blockedDC4 = true;
+
+        let cause = dc4BlockedByRej ? "FC-012 < 30%" : "PC-017 < 60%";
+
+        showMessage(`ALERTA CRÍTICO DC4: ${cause}! Pressão alta, motor disparará em 10s.`, "error");
+
+    }
+
+   
+
+    state.timerDC4++;
+
+    if (state.timerDC4 >= 10) {
+
+        state.mot112On = false; // Força desligamento do motor
+
+        state.blockedDC4 = false;
+
+        state.timerDC4 = 0;
+
+        triggerSequenceReset("MOT.112 (DC4) por ALTA PRESSÃO");
+
+    }
+
+}
+
+// --- SE TUDO ESTIVER NORMAL NO DC4 ---
+
+else {
+
+    if (state.blockedDC4) {
+
+        showMessage("DC4: Fluxo e pressão normalizados.", "success");
+
+    }
+
+    state.blockedDC4 = false;
+
+   
+
+    // Só zera o timer de segurança se NENHUMA das três falhas estiver ativa (incluindo a nova FC-009)
+
+    if (!dc4LowPressureByFc012 && !dc4HighPressureByFc009 && !dc4BlockedByRej && !dc4BlockedByAcc) {
+
+        state.timerDC4 = 0;
+
+    }
+
+}
+
+ 
+
+ 
+
+                // Segurança Ativa: Desliga a BBA.118 se o Nível for inferior a 10%
+
+                if (state.bba118On && state.tnq006Level <= 10) {
+
+                  state.bba118On = false;
+
+                  const b118El = document.getElementById('btn-bba118');
+
+                  if (b118El) b118El.classList.remove('active-pump-dc4');
+
+                  showMessage("BBA.118 DESLIGADA: Nível do TNQ.006 atingiu o limite mínimo (< 10%)!", "error");
+
+                }
+
+ 
+
+                // Dinâmica de balanço de massa do Tanque 006
+
+                let inFlow = flows.flowD10_Acc ? (state.lv012/100) * 2.0 : 0;
+
+              let outFlow = 0;
+
+              if (state.bba118On) {
+
+                  outFlow = state.bba04On ? 1.0 : 2.5;
+
+              }
+
+             
+
+              state.tnq006Level = Math.max(0, Math.min(100, state.tnq006Level + inFlow - outFlow));
+
+ 
+
+              // Algoritmo do Controlador Proporcional do LV.012
+
+                if (state.lv012Auto) {
+
+                  let error = state.tnq006SP - state.tnq006Level;
+
+                  let autoTarget;
+
+                 
+
+                  if (error < 0 && state.pc013 < 80) {
+
+                      // Restrição de Fecho Rápido: Se a PC-013 não estiver bem aberta e for necessário fechar,
+
+                      // o controlador só permite fechar no máximo 1% por cada ciclo de atualização
+
+                      autoTarget = state.lv012 - 1;
+
+                      
+
+                      let idealTarget = state.lv012 + (error * 0.5);
+
+                      autoTarget = Math.max(idealTarget, autoTarget); // Garante que não desce além do necessário
+
+                      autoTarget = Math.max(0, autoTarget); // Bloqueia abaixo de 0
+
+                  } else {
+
+                      // Comportamento normal proporcional (salta de 5 em 5 se o delta for grande)
+
+                      autoTarget = state.lv012 + (error * 0.5);
+
+                      autoTarget = Math.max(0, Math.min(100, Math.round(autoTarget / 5) * 5));
+
+                  }
+
+                 
+
+                  updateStateValue('lv012', autoTarget);
+
+                }
+
+ 
+
+            }, 1000);
+
+ 
+
+            // Iniciar o loop de renderização do Canvas
+
+            drawLoop();
+
+        }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =================================================================
+
+        // NOVO CONSOLE: FUNÇÃO DE LOGS (ATUALIZADA COM ROLAGEM INTELIGENTE)
+
+        // =================================================================
+
+        function adicionarLog(mensagem, tipo = 'info') {
+
+            const consoleElement = document.getElementById('sistema-console');
+
+            if (!consoleElement) return;
+
+ 
+
+            const novaLinha = document.createElement('div');
+
+            novaLinha.textContent = `[${new Date().toLocaleTimeString()}] ${mensagem}`;
+
+           
+
+            if (tipo === 'success') novaLinha.style.color = '#10b981'; // Verde
+
+            if (tipo === 'error') novaLinha.style.color = '#ef4444';   // Vermelho
+
+            if (tipo === 'info') novaLinha.style.color = '#38bdf8';    // Azul
+
+ 
+
+            consoleElement.appendChild(novaLinha);
+
+           
+
+            // O segredo está aqui: um mini-atraso para garantir que a linha apareça
+
+            // e a rolagem vá até o fundo real, sem esconder nada!
+
+            setTimeout(() => {
+
+                consoleElement.scrollTop = consoleElement.scrollHeight;
+
+            }, 50);
+
+        }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =================================================================
+
+// TRADUTOR UNIVERSAL PARA PEGAR OS ALARMES DO SEU CÓDIGO ANTIGO
+
+// =================================================================
+
+function logEvent(msg, tipo) { adicionarLog(msg, tipo); }
+
+function atualizarConsole(msg, tipo) { adicionarLog(msg, tipo); }
+
+function printLog(msg, tipo) { adicionarLog(msg, tipo); }
+
+function enviarMensagem(msg, tipo) { adicionarLog(msg, tipo); }
+
+function addLog(msg, tipo) { adicionarLog(msg, tipo); }
+
+ 
+
+ 
+
+ 
+
+ 
+
+// --- INICIALIZAÇÃO NO CARREGAMENTO DA PÁGINA ---
+
+        window.onload = function() {
+
+            initSimulation();
+
+        };
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =================================================================
+
+// CAPTURADOR AUTOMÁTICO DE ALARMES RAÍZ
+
+// =================================================================
+
+(function() {
+
+    const msgBox = document.getElementById('msg-box');
+
+    if (!msgBox) return;
+
+ 
+
+    // Monitora tanto o texto quanto a aparição da caixa na tela
+
+    const observer = new MutationObserver(() => {
+
+        const textoAlarme = msgBox.textContent || msgBox.innerText;
+
+       
+
+        // Se a caixinha ficou visível OU ganhou texto, e não está vazia...
+
+        if (msgBox.style.display !== 'none' && textoAlarme.trim() !== "") {
+
+           
+
+            // Evita duplicar a mesma mensagem seguida no console
+
+            if (window.ultimoAlarmeLogado !== textoAlarme) {
+
+                adicionarLog(`⚠ ALARME: ${textoAlarme}`, 'error');
+
+                window.ultimoAlarmeLogado = textoAlarme; // Salva o último alarme
+
+            }
+
+        } else if (msgBox.style.display === 'none') {
+
+            // Limpa o histórico do último alarme quando a caixa some, para poder repetir se necessário
+
+            window.ultimoAlarmeLogado = null;
+
+        }
+
+    });
+
+ 
+
+    // Ativa uma vigilância total (texto, propriedades, estilo e filhos)
+
+    observer.observe(msgBox, {
+
+        childList: true,
+
+        characterData: true,
+
+        subtree: true,
+
+        attributes: true,
+
+        attributeFilter: ['style', 'class']
+
+    });
+
+})();
+
+ 
+
+     
+
+ 
+
+ 
+
+  </script>
+
+</body>
+
+</html>

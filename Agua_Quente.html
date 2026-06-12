@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TNQ-008 - Água Aquecida (Atualizado)</title>
+    <style>
+        body {
+            margin: 0;
+            background: #050b18;
+            font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+            overflow: hidden;
+            color: white;
+            user-select: none;
+        }
+
+        #scada {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #processCanvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .instrument {
+            position: absolute;
+            width: 155px;
+            background: #0f1b30;
+            border: 2px solid #32486f;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.75);
+            z-index: 10;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .instrument:hover {
+            transform: scale(1.03);
+            border-color: #43619c;
+        }
+
+        .titulo {
+            padding: 6px 10px;
+            font-size: 13px;
+            font-weight: bold;
+            background: #1a2946;
+            border-bottom: 1px solid #32486f;
+            color: #a0aec0;
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+        }
+
+        /* Indicador de Modo (A/M) estilo DCS Industrial */
+        .modo-badge {
+            background: #10b981; /* Verde para Automático */
+            color: #050b18;
+            font-size: 11px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-weight: 900;
+            text-shadow: none;
+            box-shadow: 0 0 5px rgba(16, 185, 129, 0.4);
+            user-select: none;
+        }
+
+        .modo-badge.manual {
+            background: #f59e0b; /* Laranja/Amarelo para Manual */
+            color: #050b18;
+            box-shadow: 0 0 5px rgba(245, 158, 11, 0.4);
+        }
+
+        .valor {
+            text-align: center;
+            font-size: 26px;
+            font-weight: bold;
+            padding: 10px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .verde {
+            color: #00ff88;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+        }
+
+        .vermelho {
+            color: #ff5555;
+            text-shadow: 0 0 10px rgba(255, 85, 85, 0.3);
+        }
+
+        .azul {
+            color: #29b6ff;
+            text-shadow: 0 0 10px rgba(41, 182, 255, 0.3);
+        }
+
+        /* Posicionamento dos Instrumentos */
+        .tc030 {
+            top: 40px;
+            left: 260px;
+        }
+
+        .lc030b {
+            top: 135px;
+            left: 260px;
+        }
+
+        .lc030a {
+            top: 300px;
+            left: 720px;
+        }
+
+        /* Seletor do Modo Superior Direito (TEMPERATURA / NÍVEL sem tags internas) */
+        .temperatura {
+            position: absolute;
+            top: 40px;
+            right: 120px;
+            width: 240px;
+            text-align: center;
+            background: #111e36;
+            border: 2px solid #2563eb;
+            border-radius: 8px;
+            padding: 20px 10px;
+            font-size: 22px;
+            font-weight: bold;
+            z-index: 10;
+            box-shadow: 0 0 20px rgba(37, 99, 235, 0.25);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            color: #38bdf8;
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+            letter-spacing: 1.5px;
+        }
+
+        .temperatura:hover {
+            background: #1e2e4f;
+            border-color: #3b82f6;
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .temperatura:active {
+            transform: translateY(1px);
+        }
+
+        /* Rodapé de Eventos */
+        .eventos {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 70px;
+            background: #081224;
+            border-top: 2px solid #213553;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 25px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        .evento-titulo {
+            color: #3fa7ff;
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-alerta {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background-color: #00ff88;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #00ff88;
+            animation: pulse-green 1.5s infinite;
+        }
+
+        .status-alerta.ativo {
+            background-color: #ff3333;
+            box-shadow: 0 0 10px #ff3333;
+            animation: pulse-red 0.8s infinite;
+        }
+
+        .botoes-container {
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            height: 42px;
+            padding: 0 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
+        }
+
+        button:active {
+            transform: scale(0.96);
+        }
+
+        #faltaAgua {
+            background: #2d1e02;
+            border: 1px solid #d97706;
+            color: #fbbf24;
+        }
+
+        #faltaAgua:hover {
+            background: #452d04;
+            box-shadow: 0 0 10px rgba(217, 119, 6, 0.4);
+        }
+
+        #faltaAgua.ativo {
+            background: #d97706;
+            color: #050b18;
+            border-color: #fbbf24;
+            animation: pulse-button-orange 1s infinite alternate;
+        }
+
+        #parada {
+            background: #320000;
+            border: 1px solid #dc2626;
+            color: #fca5a5;
+        }
+
+        #parada:hover {
+            background: #4c0505;
+            box-shadow: 0 0 10px rgba(220, 38, 38, 0.4);
+        }
+
+        #parada.ativo {
+            background: #dc2626;
+            color: #050b18;
+            border-color: #fca5a5;
+            animation: pulse-button-red 1s infinite alternate;
+        }
+
+        /* Notificação flutuante de eventos - Rebaixada mais 200px (topo de 50px para 250px) */
+        #notification {
+            position: absolute;
+            top: 250px; /* Rebaixado mais 200px para garantir excelente leitura livre de sobreposição */
+            right: 20px;
+            background: rgba(15, 27, 48, 0.95);
+            border: 2px solid #213553;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+            z-index: 100;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #notification.alert {
+            border-color: #ff3333;
+            background: rgba(40, 10, 15, 0.95);
+            color: #fca5a5;
+            box-shadow: 0 0 20px rgba(255, 51, 51, 0.4);
+        }
+
+        /* Ajuda Visual para interação */
+        .clique-aviso {
+            position: absolute;
+            bottom: 85px;
+            right: 20px;
+            font-size: 12px;
+            color: #64748b;
+            z-index: 5;
+            background: rgba(5, 11, 24, 0.8);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        /* Pop-up de Ajuste da HC-030 */
+        .modal-backdrop {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+            backdrop-filter: blur(2px);
+        }
+
+        .modal {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 360px;
+            background: #0f1b30;
+            border: 2px solid #2563eb;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.85);
+            z-index: 100;
+            padding: 22px;
+            box-sizing: border-box;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .modal-header {
+            font-size: 16px;
+            font-weight: bold;
+            color: #38bdf8;
+            margin-bottom: 18px;
+            text-align: center;
+            border-bottom: 1px solid #213553;
+            padding-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .modal-body label {
+            display: block;
+            font-size: 14px;
+            color: #a0aec0;
+            margin-bottom: 8px;
+            font-weight: 500;
+            text-align: left;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            background: #111e36;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #213553;
+            margin-bottom: 15px;
+        }
+
+        .slider-container input[type="range"] {
+            flex: 1;
+            accent-color: #38bdf8;
+            cursor: pointer;
+            height: 6px;
+            border-radius: 3px;
+        }
+
+        /* Botões de Incremento e Decremento nos Sliders */
+        .inc-dec-btn {
+            background: #1a2946;
+            border: 1.5px solid #32486f;
+            color: #38bdf8;
+            width: 34px;
+            height: 34px;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .inc-dec-btn:hover {
+            background: #2563eb;
+            border-color: #38bdf8;
+            color: white;
+            box-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
+        }
+
+        .inc-dec-btn:active {
+            transform: scale(0.92);
+        }
+
+        .modo-btn {
+            background: #111e36;
+            border: 1px solid #32486f;
+            color: #a0aec0;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .modo-btn:hover {
+            background: #1a2946;
+            border-color: #43619c;
+        }
+
+        .modo-btn.ativo {
+            background: #2563eb;
+            border-color: #38bdf8;
+            color: white;
+            text-shadow: 0 0 5px rgba(255,255,255,0.5);
+            box-shadow: 0 0 10px rgba(37, 99, 235, 0.4);
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: center;
+        }
+
+        .modal-footer button {
+            background: #213553;
+            border: 1px solid #2563eb;
+            color: white;
+            padding: 8px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .modal-footer button:hover {
+            background: #2563eb;
+            box-shadow: 0 0 10px rgba(37, 99, 235, 0.4);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -45%); }
+            to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+
+        @keyframes pulse-green {
+            0% { transform: scale(0.9); opacity: 0.6; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.6; }
+        }
+
+        @keyframes pulse-red {
+            0% { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 4px #ff3333; }
+            50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 12px #ff3333; }
+            100% { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 4px #ff3333; }
+        }
+
+        @keyframes pulse-button-red {
+            from { box-shadow: 0 0 4px #dc2626; }
+            to { box-shadow: 0 0 15px #ff5555; }
+        }
+
+        @keyframes pulse-button-orange {
+            from { box-shadow: 0 0 4px #d97706; }
+            to { box-shadow: 0 0 15px #fbbf24; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="scada">
+
+    <!-- Notificações em Tempo Real -->
+    <div id="notification"></div>
+
+    <!-- Guia Rápido -->
+    <div class="clique-aviso">💡 Dica: Clique nas bombas para ligar/desligar, e nos instrumentos ou válvulas para ajustar os setpoints e parâmetros de controle.</div>
+
+    <!-- Backdrop escurecido para os Pop-ups -->
+    <div id="modalBackdrop" class="modal-backdrop" onclick="fecharTodosPopups()"></div>
+
+    <!-- Pop-up de Controle de Abertura da HC-030 -->
+    <div id="popupHC030" class="modal">
+        <div class="modal-header">Ajuste de Processo - HC-030</div>
+        <div class="modal-body">
+            <label for="rangeHC030">Abertura da Vva. HC-030</label>
+            <div class="slider-container">
+                <input type="range" id="rangeHC030" min="0" max="100" step="1" value="20" oninput="atualizarAberturaHC030(this.value)">
+                <span id="valHC030">20.0 %</span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="fecharPopupHC030()">Fechar</button>
+        </div>
+    </div>
+
+    <!-- Pop-up de Controle de Nível LC-030A (Setpoint de nível inicial de 90%) -->
+    <div id="popupLC030A" class="modal">
+        <div class="modal-header">Controle de Nível - LC-030A</div>
+        <div class="modal-body">
+            <label>Modo de Operação</label>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button id="btnLC030A_Auto" class="modo-btn" onclick="setModoLC030A('AUTO')" style="flex: 1;">AUTOMÁTICO</button>
+                <button id="btnLC030A_Manual" class="modo-btn" onclick="setModoLC030A('MANUAL')" style="flex: 1;">MANUAL</button>
+            </div>
+
+            <!-- Setpoint SP -->
+            <div id="containerSP_LCA">
+                <label>Setpoint de Nível (SP)</label>
+                <div class="slider-container">
+                    <button class="inc-dec-btn" onclick="ajustarSP('LCA', -1)">-</button>
+                    <input type="range" id="rangeSPLC030A" min="0" max="100" step="1" value="90" oninput="atualizarSPLC030A(this.value)" style="flex: 1; margin: 0 10px;">
+                    <button class="inc-dec-btn" onclick="ajustarSP('LCA', 1)">+</button>
+                </div>
+                <div style="font-size: 22px; font-weight: bold; color: #00ff88; margin-bottom: 15px; font-family: 'Courier New', Courier, monospace;" id="valSPLC030A">90.0 %</div>
+            </div>
+
+            <!-- Abertura Manual da Válvula -->
+            <div id="containerAberturaManual_LCA">
+                <label>Abertura da Válvula (Manual %)</label>
+                <div class="slider-container">
+                    <button class="inc-dec-btn" onclick="ajustarAbertura('LCA', -1)">-</button>
+                    <input type="range" id="rangeAberturaLC030A" min="0" max="100" step="1" value="80" oninput="atualizarAberturaLC030A_Val(this.value)" style="flex: 1; margin: 0 10px;">
+                    <button class="inc-dec-btn" onclick="ajustarAbertura('LCA', 1)">+</button>
+                </div>
+                <div style="font-size: 22px; font-weight: bold; color: #00ff88; font-family: 'Courier New', Courier, monospace;" id="valAberturaLC030A">80.0 %</div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="fecharPopupLC030A()">Fechar</button>
+        </div>
+    </div>
+
+    <!-- Pop-up de Controle de Temperatura TC-030 -->
+    <div id="popupTC030" class="modal">
+        <div class="modal-header">Controle de Temperatura - TC-030</div>
+        <div class="modal-body">
+            <label>Modo de Operação</label>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button id="btnTC030_Auto" class="modo-btn" onclick="setModoTC030('AUTO')" style="flex: 1;">AUTOMÁTICO</button>
+                <button id="btnTC030_Manual" class="modo-btn" onclick="setModoTC030('MANUAL')" style="flex: 1;">MANUAL</button>
+            </div>
+
+            <!-- Setpoint SP -->
+            <div id="containerSP_TC">
+                <label>Setpoint de Temperatura (SP)</label>
+                <div class="slider-container">
+                    <button class="inc-dec-btn" onclick="ajustarSP('TC', -1)">-</button>
+                    <input type="range" id="rangeSPTC030" min="40" max="95" step="0.5" value="78" oninput="atualizarSPTC030(this.value)" style="flex: 1; margin: 0 10px;">
+                    <button class="inc-dec-btn" onclick="ajustarSP('TC', 1)">+</button>
+                </div>
+                <div style="font-size: 22px; font-weight: bold; color: #00ff88; margin-bottom: 15px; font-family: 'Courier New', Courier, monospace;" id="valSPTC030">78.0 °C</div>
+            </div>
+
+            <!-- Abertura Manual da Válvula -->
+            <div id="containerAberturaManual_TC">
+                <label>Abertura da Válvula (Manual %)</label>
+                <div class="slider-container">
+                    <button class="inc-dec-btn" onclick="ajustarAbertura('TC', -1)">-</button>
+                    <input type="range" id="rangeAberturaTC030" min="0" max="100" step="1" value="20" oninput="atualizarAberturaTC030(this.value)" style="flex: 1; margin: 0 10px;">
+                    <button class="inc-dec-btn" onclick="ajustarAbertura('TC', 1)">+</button>
+                </div>
+                <div style="font-size: 22px; font-weight: bold; color: #00ff88; font-family: 'Courier New', Courier, monospace;" id="valAberturaTC030">20.0 %</div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="fecharPopupTC030()">Fechar</button>
+        </div>
+    </div>
+
+    <!-- Pop-up de Controle de Nível LC-030B -->
+    <div id="popupLC030B" class="modal">
+        <div class="modal-header">Controle de Nível - LC-030B</div>
+        <div class="modal-body">
+            <label>Modo de Operação</label>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button id="btnLC030B_Auto" class="modo-btn" onclick="setModoLC030B('AUTO')" style="flex: 1;">AUTOMÁTICO</button>
+                <button id="btnLC030B_Manual" class="modo-btn" onclick="setModoLC030B('MANUAL')" style="flex: 1;">MANUAL</button>
+            </div>
+
+            <!-- Setpoint SP -->
+            <div id="containerSP_LCB">
+                <label>Setpoint de Nível (SP)</label>
+                <div class="slider-container">
+                    <button class="inc-dec-btn" onclick="ajustarSP('LCB', -1)">-</button>
+                    <input type="range" id="rangeSPLC030B" min="0" max="100" step="1" value="90" oninput="atualizarSPLC030B(this.value)" style="flex: 1; margin: 0 10px;">
+                    <button class="inc-dec-btn" onclick="ajustarSP('LCB', 1)">+</button>
+                </div>
+                <div style="font-size: 22px; font-weight: bold; color: #00ff88; margin-bottom: 15px; font-family: 'Courier New', Courier, monospace;" id="valSPLC030B">90.0 %</div>
+            </div>
+
+            <!-- Abertura Manual da Válvula -->
+            <div id="containerAberturaManual_LCB">
+                <label>Abertura da Válvula (Manual %)</label>
+                <div class="slider-container">
+                    <button class="inc-dec-btn" onclick="ajustarAbertura('LCB', -1)">-</button>
+                    <input type="range" id="rangeAberturaLC030B" min="0" max="100" step="1" value="60" oninput="atualizarAberturaLC030B(this.value)" style="flex: 1; margin: 0 10px;">
+                    <button class="inc-dec-btn" onclick="ajustarAbertura('LCB', 1)">+</button>
+                </div>
+                <div style="font-size: 22px; font-weight: bold; color: #00ff88; font-family: 'Courier New', Courier, monospace;" id="valAberturaLC030B">60.0 %</div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="fecharPopupLC030B()">Fechar</button>
+        </div>
+    </div>
+
+    <!-- Instrumentos Esquerda (Tornados Clicáveis para acessar os controladores de Processo) -->
+    <div class="instrument tc030" onclick="abrirPopupTC030()" style="cursor: pointer;">
+        <div class="titulo">
+            <span>TC-030 (Temp)</span>
+            <span id="ind_TC030" class="modo-badge">A</span>
+        </div>
+        <div class="valor verde" id="tc030">78.5 °C</div>
+    </div>
+
+    <!-- Retorno do Monitor Fixo de Nível LC-030B -->
+    <div class="instrument lc030b" onclick="abrirPopupLC030B()" style="cursor: pointer;">
+        <div class="titulo">
+            <span>LC-030B (Nível)</span>
+            <span id="ind_LC030B" class="modo-badge">A</span>
+        </div>
+        <div class="valor verde" id="lc030b">90.0 %</div>
+    </div>
+
+    <!-- Seletor do Modo de Exibição Ativo (TEMPERATURA ou NÍVEL, limpo e sem tags internas) -->
+    <div class="temperatura" id="centralDisplay" onclick="alternarExibicaoCentral()">
+        TEMPERATURA
+    </div>
+
+    <!-- Canvas de Renderização da Planta de Processo -->
+    <canvas id="processCanvas"></canvas>
+
+    <!-- Indicador de Posição da Válvula de Controle LC030A (Quadrado indicador principal clicável) -->
+    <div class="instrument lc030a" onclick="abrirPopupLC030A()" style="cursor: pointer;">
+        <div class="titulo">
+            <span>LC-030A (Vva)</span>
+            <span id="ind_LC030A" class="modo-badge">A</span>
+        </div>
+        <div class="valor verde" id="lc030a">80.0 %</div>
+    </div>
+
+    <!-- Rodapé: Monitor de Eventos e Simulação Operacional -->
+    <div class="eventos">
+        <div class="evento-titulo">
+            <span class="status-alerta" id="ledStatus"></span>
+            <span id="logTexto">⚠ SISTEMA EM OPERAÇÃO NORMAL - SIMULADOR ESTÁVEL</span>
+        </div>
+
+        <div class="botoes-container">
+            <button id="faltaAgua" onclick="triggerFaltaAgua()">
+                FORÇAR FALTA DE ÁGUA (60s)
+            </button>
+
+            <button id="parada" onclick="triggerParadaBranqueamento()">
+                FORÇAR PARADA BRANQUEAMENTO (3 min)
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Referências Globais para o Canvas e Elementos do DOM
+    let canvas, ctx;
+    let elTC030, elLC030B, elLC030A, elCentralDisplay, elLogTexto, elLedStatus, elNotification;
+    let elRangeHC030, elValHC030, elPopupHC030, elBackdrop;
+    let elPopupLC030A, elRangeSPLC030A, elValSPLC030A, elRangeAberturaLC030A, elValAberturaLC030A;
+    let btnFaltaAgua, btnParada;
+    let elIndTC030, elIndLC030B, elIndLC030A; // Referências dinâmicas para os badges A/M
+
+    // VARIÁVEIS DE PROCESSO (Estado Dinâmico Inicial)
+    let bomba006 = true;       // Bomba de Sucção Inferior Lenta
+    let bomba010 = true;       // Bomba de Sucção Inferior Rápida
+    
+    // Variáveis que gerenciam a abertura física e dinâmicas das válvulas (valores % reais)
+    let aberturaHC030 = 20.0;  // Abertura da dreno superior HC-030
+    let aberturaHC030_anterior = 20.0; // Salvaguarda para reversão
+    let hc030Aberto = false;   // Flag para saber se o popup da HC-030 está de fato aberto
+    
+    // VARIÁVEIS E SETTINGS DO CONTROLADOR DE TEMPERATURA TC-030 (Inicia SP em 78.0°C)
+    let modoTC030 = "AUTO";
+    let spTC030 = 78.0; 
+    let aberturaTC030 = 20.0;  // Inicialmente 20% para bater com HC-030
+    
+    // Variáveis de rastreamento de alteração para TC-030
+    let tc030Aberto = false;
+    let spTC030_anterior = 78.0;
+    let aberturaTC030_anterior = 20.0;
+    let modoTC030_anterior = "AUTO";
+
+    // VARIÁVEIS E SETTINGS DO CONTROLADOR DE NÍVEL LC-030B (Inicia SP em 90.0%)
+    let modoLC030B = "AUTO";
+    let spLC030B = 90.0;
+    let aberturaLC030B = 60.0; // Inicialmente 60% para controle de nível dreno
+    
+    // Variáveis de rastreamento de alteração para LC-030B
+    let lc030bAberto = false;
+    let spLC030B_anterior = 90.0;
+    let aberturaLC030B_anterior = 60.0;
+    let modoLC030B_anterior = "AUTO";
+
+    // VARIÁVEIS E SETTINGS DO CONTROLADOR DE NÍVEL LC-030A (Inicia SP em 90.0%)
+    let modoLC030A = "AUTO";
+    let spLC030A = 90.0;
+    let aberturaLC030A_manual = 80.0; // Valor manual inicializado em 80%
+    let aberturaLC030A = 80.0;        // Abertura física real
+
+    // Variáveis de estado derivadas das percentagens
+    let valvulaHC030 = true;   
+    let valvulaLC030A = true;  
+
+    // Variável que determina o estado do seletor: false = TEMPERATURA, true = NÍVEL
+    let exibirNivel = false; 
+
+    // Valores Simulados em Flutuação Física Real
+    let nivelTanque = 90.0;      // Valor (%) do Tanque TNQ-008
+    let temperaturaTanque = 78.5;// Valor (°C) inicial do TC-030 (Fluctua de 78 a 79)
+
+    // Variáveis auxiliares de simulação
+    let fluxo = 0;              // Controle de deslocamento visual da linha tracejada de fluxo
+    let tempoFaltaAgua = 0;     // Timer ativo de simulação de falha
+    let tempoParada = 0;        // Timer ativo de simulação de parada do Branqueamento
+
+    // Inicialização Absoluta do SCADA assim que os elementos carregarem (Garante que nada suma)
+    function init() {
+        canvas = document.getElementById("processCanvas");
+        ctx = canvas.getContext("2d");
+
+        // Associações Dinâmicas das Referências
+        elTC030 = document.getElementById("tc030");
+        elLC030B = document.getElementById("lc030b");
+        elLC030A = document.getElementById("lc030a");
+        elCentralDisplay = document.getElementById("centralDisplay");
+        elLogTexto = document.getElementById("logTexto");
+        elLedStatus = document.getElementById("ledStatus");
+        elNotification = document.getElementById("notification");
+        
+        elRangeHC030 = document.getElementById("rangeHC030");
+        elValHC030 = document.getElementById("valHC030");
+        elPopupHC030 = document.getElementById("popupHC030");
+        elBackdrop = document.getElementById("modalBackdrop");
+
+        elPopupLC030A = document.getElementById("popupLC030A");
+        elRangeSPLC030A = document.getElementById("rangeSPLC030A");
+        elValSPLC030A = document.getElementById("valSPLC030A");
+        elRangeAberturaLC030A = document.getElementById("rangeAberturaLC030A");
+        elValAberturaLC030A = document.getElementById("valAberturaLC030A");
+
+        btnFaltaAgua = document.getElementById("faltaAgua");
+        btnParada = document.getElementById("parada");
+
+        // Referências dinâmicas para os badges A/M de modo
+        elIndTC030 = document.getElementById("ind_TC030");
+        elIndLC030B = document.getElementById("ind_LC030B");
+        elIndLC030A = document.getElementById("ind_LC030A");
+
+        // Ajusta dimensões iniciais com fallback seguro contra frames ocultos
+        resize();
+
+        // Vincula eventos do mouse e resize de tela
+        window.addEventListener("resize", resize);
+        canvas.addEventListener("click", tratarCliqueCanvas);
+
+        // Inicia a renderização contínua do Canvas
+        desenhar();
+
+        // Inicia o simulador físico em loop de 500ms
+        setInterval(atualizarSimuladorFisico, 500);
+    }
+
+    // Aguarda o documento estar inteiramente disponível para evitar erros de ponteiro nulo
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+
+    // Ajuste Inicial e Monitoramento Robusto do Canvas contra dimensões zeradas em previewers
+    function resize() {
+        if (!canvas) return;
+        const w = window.innerWidth || document.documentElement.clientWidth || 1024;
+        const h = window.innerHeight || document.documentElement.clientHeight || 768;
+        canvas.width = w > 0 ? w : 1024;
+        canvas.height = h > 0 ? h : 768;
+    }
+
+    // Função de Exibição de Toast / Notificações do Sistema SCADA
+    function showNotification(msg, isAlert = false) {
+        if (!elNotification) return;
+        elNotification.innerText = msg;
+        elNotification.className = "show" + (isAlert ? " alert" : "");
+        setTimeout(() => {
+            elNotification.classList.remove("show");
+        }, 4000);
+    }
+
+    // CONTROLE DE POPUP DA VALVULA HC-030 (Com reversão e Alarme de Atuação Errada dinâmico)
+    function abrirPopupHC030() {
+        aberturaHC030_anterior = aberturaHC030; // Salva o estado atual antes de modificações
+        hc030Aberto = true;
+        elRangeHC030.value = aberturaHC030;
+        elValHC030.innerText = aberturaHC030.toFixed(1) + " %";
+        elBackdrop.style.display = "block";
+        elPopupHC030.style.display = "block";
+    }
+
+    function fecharPopupHC030() {
+        elBackdrop.style.display = "none";
+        elPopupHC030.style.display = "none";
+        
+        // Só verifica a regra de erro se o popup foi de fato aberto pelo operador
+        if (hc030Aberto) {
+            hc030Aberto = false;
+            // Se houver qualquer variação do valor original ao fechar, reverte a ação e dispara a advertência customizada
+            if (Math.abs(aberturaHC030 - aberturaHC030_anterior) > 1.0) {
+                aberturaHC030 = aberturaHC030_anterior;
+                valvulaHC030 = aberturaHC030 > 0;
+                elValHC030.innerText = aberturaHC030.toFixed(1) + " %";
+                elRangeHC030.value = aberturaHC030;
+                
+                // Mensagem de erro baseada no instrumento do quadro selecionado (Sem tags no quadro)
+                let msgErro = "";
+                if (!exibirNivel) {
+                    msgErro = "Atuação errada! A atuação tem que ser na TC-030";
+                } else {
+                    msgErro = "Atuação errada! A atuação tem que ser na LC-030B";
+                }
+                showNotification(msgErro, true);
+            }
+        }
+    }
+
+    function atualizarAberturaHC030(valor) {
+        aberturaHC030 = parseFloat(valor);
+        valvulaHC030 = aberturaHC030 > 0;
+        elValHC030.innerText = aberturaHC030.toFixed(1) + " %";
+    }
+
+    // CONTROLE DE POPUP DA VALVULA LC-030A (Automático / Manual com Setpoint de Nível de 90%)
+    function abrirPopupLC030A() {
+        elBackdrop.style.display = "block";
+        document.getElementById("popupLC030A").style.display = "block";
+        atualizarInterfacePopupLC030A();
+    }
+
+    function fecharPopupLC030A() {
+        elBackdrop.style.display = "none";
+        document.getElementById("popupLC030A").style.display = "none";
+    }
+
+    function setModoLC030A(modo) {
+        if (modo === "MANUAL") {
+            // Bumpless Transfer: Sincroniza manual com o valor em campo antes da transição
+            aberturaLC030A_manual = aberturaLC030A;
+        }
+        modoLC030A = modo;
+        atualizarInterfacePopupLC030A();
+        showNotification(`LC-030A alterada para modo: ${modo}`);
+    }
+
+    function atualizarInterfacePopupLC030A() {
+        document.getElementById("btnLC030A_Auto").className = "modo-btn " + (modoLC030A === "AUTO" ? "ativo" : "");
+        document.getElementById("btnLC030A_Manual").className = "modo-btn " + (modoLC030A === "MANUAL" ? "ativo" : "");
+
+        const containerSP = document.getElementById("containerSP_LCA");
+        const containerAbertura = document.getElementById("containerAberturaManual_LCA");
+
+        document.getElementById("rangeSPLC030A").value = spLC030A;
+        document.getElementById("valSPLC030A").innerText = spLC030A.toFixed(1) + " %";
+
+        document.getElementById("rangeAberturaLC030A").value = aberturaLC030A_manual;
+        document.getElementById("valAberturaLC030A").innerText = aberturaLC030A_manual.toFixed(1) + " %";
+
+        if (modoLC030A === "AUTO") {
+            containerSP.style.opacity = "1";
+            containerSP.style.pointerEvents = "auto";
+            containerAbertura.style.opacity = "0.7"; 
+            containerAbertura.style.pointerEvents = "none"; 
+        } else {
+            containerSP.style.opacity = "0.4";
+            containerSP.style.pointerEvents = "none";
+            containerAbertura.style.opacity = "1";
+            containerAbertura.style.pointerEvents = "auto";
+        }
+    }
+
+    function atualizarSPLC030A(valor) {
+        spLC030A = parseFloat(valor);
+        document.getElementById("valSPLC030A").innerText = spLC030A.toFixed(1) + " %";
+    }
+
+    // Corrigido para sincronizar corretamente o slider manual no clique das setas
+    function atualizarAberturaLC030A_Val(valor) {
+        aberturaLC030A_manual = parseFloat(valor);
+        aberturaLC030A = aberturaLC030A_manual; 
+        document.getElementById("valAberturaLC030A").innerText = aberturaLC030A_manual.toFixed(1) + " %";
+        if (elLC030A) elLC030A.innerText = aberturaLC030A.toFixed(1) + " %";
+    }
+
+    // CONTROLES DE POPUPS ESPECÍFICOS PARA OS CONTROLADORES TC-030 E LC-030B
+    function abrirPopupTC030() {
+        // Salva os estados anteriores à alteração antes de exibir o pop-up
+        spTC030_anterior = spTC030;
+        aberturaTC030_anterior = aberturaTC030;
+        modoTC030_anterior = modoTC030;
+        tc030Aberto = true;
+
+        elBackdrop.style.display = "block";
+        document.getElementById("popupTC030").style.display = "block";
+        atualizarInterfacePopupTC030();
+    }
+
+    function fecharPopupTC030() {
+        elBackdrop.style.display = "none";
+        document.getElementById("popupTC030").style.display = "none";
+
+        // Verifica a regra de intertravamento de erro operacional se o pop-up foi modificado
+        if (tc030Aberto) {
+            tc030Aberto = false;
+            // Se o ecrã estiver em modo NÍVEL (exibirNivel === true), tentar operar o TC-030 é uma atuação errada!
+            if (exibirNivel) {
+                const spAlterado = Math.abs(spTC030 - spTC030_anterior) > 0.01;
+                const aberturaAlterada = Math.abs(aberturaTC030 - aberturaTC030_anterior) > 0.01;
+                const modoAlterado = modoTC030 !== modoTC030_anterior;
+
+                if (spAlterado || aberturaAlterada || modoAlterado) {
+                    // Reverte os parâmetros operacionais de volta ao original
+                    spTC030 = spTC030_anterior;
+                    aberturaTC030 = aberturaTC030_anterior;
+                    modoTC030 = modoTC030_anterior;
+
+                    // Atualiza a interface gráfica do pop-up para sincronizar os controles
+                    atualizarInterfacePopupTC030();
+
+                    // Dispara a mesma mensagem de atenção/erro
+                    showNotification("Atuação errada! A atuação tem que ser na LC-030B", true);
+                }
+            }
+        }
+    }
+
+    // Pop-up de Controle de Nível LC-030B
+    function abrirPopupLC030B() {
+        // Salva os estados anteriores à alteração antes de exibir o pop-up
+        spLC030B_anterior = spLC030B;
+        aberturaLC030B_anterior = aberturaLC030B;
+        modoLC030B_anterior = modoLC030B;
+        lc030bAberto = true;
+
+        elBackdrop.style.display = "block";
+        document.getElementById("popupLC030B").style.display = "block";
+        atualizarInterfacePopupLC030B();
+    }
+
+    function fecharPopupLC030B() {
+        elBackdrop.style.display = "none";
+        document.getElementById("popupLC030B").style.display = "none";
+
+        // Verifica a regra de intertravamento de erro operacional se o pop-up foi modificado
+        if (lc030bAberto) {
+            lc030bAberto = false;
+            // Se o ecrã estiver em modo TEMPERATURA (exibirNivel === false), tentar operar o LC-030B é uma atuação errada!
+            if (!exibirNivel) {
+                const spAlterado = Math.abs(spLC030B - spLC030B_anterior) > 0.01;
+                const aberturaAlterada = Math.abs(aberturaLC030B - aberturaLC030B_anterior) > 0.01;
+                const modoAlterado = modoLC030B !== modoLC030B_anterior;
+
+                if (spAlterado || aberturaAlterada || modoAlterado) {
+                    // Reverte os parâmetros operacionais de volta ao original
+                    spLC030B = spLC030B_anterior;
+                    aberturaLC030B = aberturaLC030B_anterior;
+                    modoLC030B = modoLC030B_anterior;
+
+                    // Atualiza a interface gráfica do pop-up para sincronizar os controles
+                    atualizarInterfacePopupLC030B();
+
+                    // Dispara a mesma mensagem de atenção/erro
+                    showNotification("Atuação errada! A atuação tem que ser na TC-030", true);
+                }
+            }
+        }
+    }
+
+    function setModoTC030(modo) {
+        if (modo === "MANUAL") {
+            // Bumpless Transfer: Sincroniza manual com o valor atual em campo antes da transição
+            if (!exibirNivel) {
+                aberturaTC030 = aberturaHC030;
+            } else {
+                aberturaTC030 = aberturaLC030A;
+            }
+        }
+        modoTC030 = modo;
+        atualizarInterfacePopupTC030();
+        showNotification(`TC-030 alterado para modo: ${modo}`);
+    }
+
+    // Altera o modo do controlador LC-030B
+    function setModoLC030B(modo) {
+        if (modo === "MANUAL") {
+            // Bumpless Transfer: Sincroniza manual com o valor em campo antes da transição
+            aberturaLC030B = aberturaHC030;
+        }
+        modoLC030B = modo;
+        atualizarInterfacePopupLC030B();
+        showNotification(`LC-030B alterado para modo: ${modo}`);
+    }
+
+    function atualizarInterfacePopupTC030() {
+        document.getElementById("btnTC030_Auto").className = "modo-btn " + (modoTC030 === "AUTO" ? "ativo" : "");
+        document.getElementById("btnTC030_Manual").className = "modo-btn " + (modoTC030 === "MANUAL" ? "ativo" : "");
+
+        const containerSP = document.getElementById("containerSP_TC");
+        const containerAbertura = document.getElementById("containerAberturaManual_TC");
+
+        document.getElementById("rangeSPTC030").value = spTC030;
+        document.getElementById("valSPTC030").innerText = spTC030.toFixed(1) + " °C";
+
+        document.getElementById("rangeAberturaTC030").value = aberturaTC030;
+        document.getElementById("valAberturaTC030").innerText = aberturaTC030.toFixed(1) + " %";
+
+        if (modoTC030 === "AUTO") {
+            containerSP.style.opacity = "1";
+            containerSP.style.pointerEvents = "auto";
+            containerAbertura.style.opacity = "0.7";
+            containerAbertura.style.pointerEvents = "none";
+        } else {
+            containerSP.style.opacity = "0.4";
+            containerSP.style.pointerEvents = "none";
+            containerAbertura.style.opacity = "1";
+            containerAbertura.style.pointerEvents = "auto";
+        }
+    }
+
+    // Detecção no modo de interface e sliders do LC-030B
+    function atualizarInterfacePopupLC030B() {
+        document.getElementById("btnLC030B_Auto").className = "modo-btn " + (modoLC030B === "AUTO" ? "ativo" : "");
+        document.getElementById("btnLC030B_Manual").className = "modo-btn " + (modoLC030B === "MANUAL" ? "ativo" : "");
+
+        const containerSP = document.getElementById("containerSP_LCB");
+        const containerAbertura = document.getElementById("containerAberturaManual_LCB");
+
+        document.getElementById("rangeSPLC030B").value = spLC030B;
+        document.getElementById("valSPLC030B").innerText = spLC030B.toFixed(1) + " %";
+
+        document.getElementById("rangeAberturaLC030B").value = aberturaLC030B;
+        document.getElementById("valAberturaLC030B").innerText = aberturaLC030B.toFixed(1) + " %";
+
+        if (modoLC030B === "AUTO") {
+            containerSP.style.opacity = "1";
+            containerSP.style.pointerEvents = "auto";
+            containerAbertura.style.opacity = "0.7";
+            containerAbertura.style.pointerEvents = "none";
+        } else {
+            containerSP.style.opacity = "0.4";
+            containerSP.style.pointerEvents = "none";
+            containerAbertura.style.opacity = "1";
+            containerAbertura.style.pointerEvents = "auto";
+        }
+    }
+
+    // Métodos de Input Manual de Processo para TC e LC
+    function atualizarSPTC030(valor) {
+        spTC030 = parseFloat(valor);
+        document.getElementById("valSPTC030").innerText = spTC030.toFixed(1) + " °C";
+    }
+
+    // Métodos de Input Manual para LC-030B
+    function atualizarAberturaTC030(valor) {
+        aberturaTC030 = parseFloat(valor);
+        document.getElementById("valAberturaTC030").innerText = aberturaTC030.toFixed(1) + " %";
+    }
+
+    function atualizarSPLC030B(valor) {
+        spLC030B = parseFloat(valor);
+        document.getElementById("valSPLC030B").innerText = spLC030B.toFixed(1) + " %";
+    }
+
+    function atualizarAberturaLC030B(valor) {
+        aberturaLC030B = parseFloat(valor);
+        document.getElementById("valAberturaLC030B").innerText = aberturaLC030B.toFixed(1) + " %";
+    }
+
+    // MÉTODOS DE INCREMENTO E DECREMENTO SELETIVOS POR BOTÕES
+    function ajustarSP(tipo, delta) {
+        if (tipo === 'TC') {
+            spTC030 = Math.min(95.0, Math.max(40.0, spTC030 + delta * 0.5));
+            document.getElementById("rangeSPTC030").value = spTC030;
+            document.getElementById("valSPTC030").innerText = spTC030.toFixed(1) + " °C";
+        } else if (tipo === 'LCB') {
+            spLC030B = Math.min(100.0, Math.max(0.0, spLC030B + delta));
+            document.getElementById("rangeSPLC030B").value = spLC030B;
+            document.getElementById("valSPLC030B").innerText = spLC030B.toFixed(1) + " %";
+        } else if (tipo === 'LCA') {
+            spLC030A = Math.min(100.0, Math.max(0.0, spLC030A + delta));
+            document.getElementById("rangeSPLC030A").value = spLC030A;
+            document.getElementById("valSPLC030A").innerText = spLC030A.toFixed(1) + " %";
+        }
+    }
+
+    function ajustarAbertura(tipo, delta) {
+        if (tipo === 'TC') {
+            aberturaTC030 = Math.min(100.0, Math.max(0.0, aberturaTC030 + delta));
+            document.getElementById("rangeAberturaTC030").value = aberturaTC030;
+            document.getElementById("valAberturaTC030").innerText = aberturaTC030.toFixed(1) + " %";
+        } else if (tipo === 'LCB') {
+            aberturaLC030B = Math.min(100.0, Math.max(0.0, aberturaLC030B + delta));
+            document.getElementById("rangeAberturaLC030B").value = aberturaLC030B;
+            document.getElementById("valAberturaLC030B").innerText = aberturaLC030B.toFixed(1) + " %";
+        } else if (tipo === 'LCA') {
+            aberturaLC030A_manual = Math.min(100.0, Math.max(0.0, aberturaLC030A_manual + delta));
+            aberturaLC030A = aberturaLC030A_manual;
+            document.getElementById("rangeAberturaLC030A").value = aberturaLC030A_manual;
+            document.getElementById("valAberturaLC030A").innerText = aberturaLC030A_manual.toFixed(1) + " %";
+            if (elLC030A) elLC030A.innerText = aberturaLC030A.toFixed(1) + " %";
+        }
+    }
+
+    // Fechar todos se clicar fora do modal no backdrop escuro
+    function fecharTodosPopups() {
+        fecharPopupHC030();
+        fecharPopupLC030A();
+        fecharPopupTC030();
+        fecharPopupLC030B();
+    }
+
+    // Handlers dos Eventos Forçados (Botões)
+    function triggerFaltaAgua() {
+        if (tempoFaltaAgua > 0) {
+            tempoFaltaAgua = 0;
+            btnFaltaAgua.classList.remove("ativo");
+            showNotification("Restabelecido o suprimento de água externa.", false);
+        } else {
+            tempoFaltaAgua = 60; // 60 segundos
+            btnFaltaAgua.classList.add("ativo");
+            showNotification("ALERTA: Falta de água no processo do reservatório TNQ-008!", true);
+        }
+    }
+
+    // Parada do Branqueamento
+    function triggerParadaBranqueamento() {
+        if (tempoParada > 0) {
+            tempoParada = 0;
+            btnParada.classList.remove("ativo");
+            showNotification("Reativado o processo de Branqueamento.", false);
+        } else {
+            tempoParada = 180; // 180 segundos (3 min)
+            btnParada.classList.add("ativo");
+            showNotification("ALERTA: Branqueamento interrompido! Bomba 314-BBA-630A/B estancada.", true);
+        }
+    }
+
+    // Alternador do Modo de Exibição Ativo no Supervisório (Temperatura ou Nível)
+    function alternarExibicaoCentral() {
+        exibirNivel = !exibirNivel;
+        
+        if (exibirNivel) {
+            showNotification("Variável de controle de processo alterada para: MODO NÍVEL");
+        } else {
+            showNotification("Variável de controle de processo alterada para: MODO TEMPERATURA");
+        }
+        
+        if (document.getElementById("popupLC030A").style.display === "block") {
+            atualizarInterfacePopupLC030A();
+        }
+    }
+
+    // LÓGICA DE SIMULAÇÃO DE FÍSICA E CONTROLADORES DE PROCESSO
+    function atualizarSimuladorFisico() {
+        // Decremento dos Timers de Simulação Ativos
+        if (tempoFaltaAgua > 0) {
+            tempoFaltaAgua--;
+            if (tempoFaltaAgua === 0) btnFaltaAgua.classList.remove("ativo");
+        }
+        if (tempoParada > 0) {
+            tempoParada--;
+            if (tempoParada === 0) btnParada.classList.remove("ativo");
+        }
+
+        // INTERTRAVAMENTO DE SEGURANÇA: Desliga BBA-006 e BBA-010 se o nível cair abaixo de 10%
+        if (nivelTanque < 10.0) {
+            if (bomba006 || bomba010) {
+                bomba006 = false;
+                bomba010 = false;
+                showNotification("INTERTRAVAMENTO: Bombas desligadas devido ao nível crítico baixo (<10%)!", true);
+            }
+        }
+
+        // --- DEFINIÇÃO DOS TARGETS DINÂMICOS CONFORME AS DIRETRIZES OPERACIONAIS ---
+        let tempAlvo = 78.5;  // Default normal (78 a 79 °C)
+        let nivelAlvo = 90.0; // Default normal
+
+        if (tempoFaltaAgua > 0) {
+            tempAlvo = 60.0;
+            nivelAlvo = 50.0;
+        } else if (tempoParada > 0) {
+            tempAlvo = 40.0;
+            if (!exibirNivel) {
+                nivelAlvo = 40.0;
+            } else {
+                nivelAlvo = spLC030B; // Alvo volta a ser regulado por spLC030B (90% padrão, ou setado pelo operador)
+            }
+        } else {
+            // Condições normais estáveis
+            if (!exibirNivel) {
+                tempAlvo = spTC030;   // 78.0 °C padrão
+                nivelAlvo = spLC030A; // 90.0 % padrão
+            } else {
+                tempAlvo = spTC030;   // 78.0 °C padrão
+                nivelAlvo = spLC030B; // 90.0 % padrão
+            }
+        }
+
+        // --- CONTROLE FEEDBACK AUTOMÁTICO DAS VÁLVULAS ---
+        let aberturaHC030_auto = 20.0;
+        let aberturaLC030A_auto = 80.0;
+
+        if (!exibirNivel) {
+            // MODO TEMPERATURA:
+            // TC-030 controls dreno HC-030 (Injeta água quente/vapor proporcionalmente se temperatura < SP)
+            let erroTemperatura = tempAlvo - temperaturaTanque;
+            aberturaHC030_auto = Math.min(100.0, Math.max(0.0, 20.0 + erroTemperatura * 6.0));
+
+            // LC-030A controla o nível buscando o setpoint ativo (spLC030A, padrão 90%)
+            // Se o nível estiver abaixo do setpoint, a válvula ABRE proporcionalmente para encher
+            let erroNivel = spLC030A - nivelTanque;
+            aberturaLC030A_auto = Math.min(100.0, Math.max(0.0, 50.0 + erroNivel * 4.5));
+        } else {
+            // MODO NÍVEL:
+            // LC-030B assume o dreno/alimentação HC-030 secundária buscando spLC030B (padrão ou 100% via slider)
+            if (tempoParada > 0) {
+                // Durante a Parada de Branqueamento: válvula tem baseline de 80%
+                // Se o nível estiver ABAIXO do setpoint (spLC030B), a válvula LC-030B abre até 100% para atuar e subir o nível!
+                let erroNivelB = spLC030B - nivelTanque;
+                aberturaHC030_auto = Math.min(100.0, Math.max(0.0, 80.0 + erroNivelB * 3.5));
+            } else {
+                // "se tiver modo nivel a LC-030B fica fechada" (quando o branqueamento está ativo em operação normal)
+                aberturaHC030_auto = 0.0;
+            }
+
+            // No modo nível, LC-030A auxilia a regular e restabelecer o nível com base no setpoint dinâmico (spLC030B)
+            let erroNivelA = spLC030B - nivelTanque;
+            aberturaLC030A_auto = Math.min(100.0, Math.max(0.0, 50.0 + erroNivelA * 5.0));
+        }
+
+        // Aplicação física das posições reais das válvulas (AUTO ou MANUAL)
+        // Válvula HC-030
+        if (!exibirNivel) {
+            if (modoTC030 === "AUTO") {
+                aberturaHC030 = aberturaHC030 + (aberturaHC030_auto - aberturaHC030) * 0.12;
+            } else {
+                aberturaHC030 = aberturaTC030;
+            }
+        } else {
+            if (modoLC030B === "AUTO") {
+                aberturaHC030 = aberturaHC030 + (aberturaHC030_auto - aberturaHC030) * 0.12;
+            } else {
+                aberturaHC030 = aberturaLC030B;
+            }
+        }
+        valvulaHC030 = aberturaHC030 > 0;
+
+        // Válvula LC-030A
+        if (modoLC030A === "MANUAL") {
+            aberturaLC030A = aberturaLC030A_manual;
+        } else {
+            aberturaLC030A = aberturaLC030A + (aberturaLC030A_auto - aberturaLC030A) * 0.12;
+        }
+        valvulaLC030A = aberturaLC030A > 0;
+
+        // --- MODELO FÍSICO DO NÍVEL DO TANQUE TNQ-008 ---
+        // Sucção das bombas (vazão de saída)
+        let flowBBA006 = (bomba006 && nivelTanque >= 10.0) ? 0.20 : 0.0;
+        let flowBBA010 = (bomba010 && nivelTanque >= 10.0) ? 0.30 : 0.0;
+        
+        // Entrada de água
+        let flowMakeUp = (tempoFaltaAgua > 0) ? 0.0 : 0.30; // Falta de água desliga Make-up
+        
+        // Entrada Branqueamento
+        let flowBranqueamento = (tempoParada > 0) ? 0.05 * (aberturaLC030A / 100) : 0.45 * (aberturaLC030A / 100);
+
+        // Alimentação auxiliar/controle de nível via HC-030 (Atua agregando nível no modo automático)
+        let flowHC030 = 0.40 * (aberturaHC030 / 100);
+
+        // Balanço de massas dinâmico integrado
+        let deltaNivel = (flowMakeUp + flowBranqueamento + flowHC030) - (flowBBA006 + flowBBA010);
+        
+        // Simulação integrada de nível
+        nivelTanque = nivelTanque + deltaNivel * 0.20;
+
+        // Comportamento suavizado sob condições forçadas
+        if (tempoParada > 0 && !exibirNivel) {
+            nivelTanque = nivelTanque + (40.0 - nivelTanque) * 0.05;
+        } else if (tempoFaltaAgua > 0 && !exibirNivel) {
+            nivelTanque = nivelTanque + (50.0 - nivelTanque) * 0.015;
+        }
+
+        nivelTanque = Math.min(100.0, Math.max(0.0, nivelTanque));
+
+        // --- MODELO FÍSICO DE TEMPERATURA ---
+        let tempAlvoSimulado = tempAlvo;
+        temperaturaTanque = temperaturaTanque + (tempAlvoSimulado - temperaturaTanque) * 0.05 + (Math.random() * 0.04 - 0.02);
+        temperaturaTanque = Math.min(99.0, Math.max(15.0, temperaturaTanque));
+
+        // Atualizar displays numéricos e em tempo real
+        atualizarDisplays();
+    }
+
+    function atualizarDisplays() {
+        if (!elTC030 || !elLC030B || !elLC030A) return;
+
+        // Atualização dos textos de campo
+        elTC030.innerText = temperaturaTanque.toFixed(1) + " °C";
+        elLC030B.innerText = nivelTanque.toFixed(1) + " %";
+        elLC030A.innerText = aberturaLC030A.toFixed(1) + " %";
+
+        // Sincronização dinâmica dos badges de estado AUTO/MANUAL (A/M) nos instrumentos
+        if (elIndTC030) {
+            elIndTC030.innerText = modoTC030 === "AUTO" ? "A" : "M";
+            elIndTC030.className = "modo-badge" + (modoTC030 === "AUTO" ? "" : " manual");
+        }
+        if (elIndLC030B) {
+            elIndLC030B.innerText = modoLC030B === "AUTO" ? "A" : "M";
+            elIndLC030B.className = "modo-badge" + (modoLC030B === "AUTO" ? "" : " manual");
+        }
+        if (elIndLC030A) {
+            elIndLC030A.innerText = modoLC030A === "AUTO" ? "A" : "M";
+            elIndLC030A.className = "modo-badge" + (modoLC030A === "AUTO" ? "" : " manual");
+        }
+
+        // Sincronização em tempo real das posições de válvula e displays dos Pop-ups
+        if (document.getElementById("popupLC030A").style.display === "block") {
+            if (modoLC030A === "AUTO") {
+                document.getElementById("rangeAberturaLC030A").value = aberturaLC030A;
+                document.getElementById("valAberturaLC030A").innerText = aberturaLC030A.toFixed(1) + " %";
+            }
+        }
+
+        if (document.getElementById("popupTC030").style.display === "block") {
+            if (modoTC030 === "AUTO") {
+                let actualVal = (!exibirNivel) ? aberturaHC030 : aberturaLC030A;
+                document.getElementById("rangeAberturaTC030").value = actualVal;
+                document.getElementById("valAberturaTC030").innerText = actualVal.toFixed(1) + " %";
+            }
+        }
+
+        if (document.getElementById("popupLC030B").style.display === "block") {
+            if (modoLC030B === "AUTO") {
+                document.getElementById("rangeAberturaLC030B").value = aberturaHC030;
+                document.getElementById("valAberturaLC030B").innerText = aberturaHC030.toFixed(1) + " %";
+            }
+        }
+
+        // --- CORES DOS ALARMES DE PROCESSO CONFORME SOLICITADO ---
+        if (temperaturaTanque > 80.0) {
+            elTC030.className = "valor vermelho";
+        } else {
+            elTC030.className = "valor verde";
+        }
+
+        if (nivelTanque < 50.0 || nivelTanque > 95.0) {
+            elLC030B.className = "valor vermelho";
+        } else {
+            elLC030B.className = "valor verde";
+        }
+
+        // Seletor Superior Direito
+        if (!exibirNivel) {
+            elCentralDisplay.innerText = "TEMPERATURA";
+            elCentralDisplay.style.color = "#38bdf8";
+            elCentralDisplay.style.borderColor = "#2563eb";
+        } else {
+            elCentralDisplay.innerText = "NÍVEL";
+            elCentralDisplay.style.color = "#00ff88";
+            elCentralDisplay.style.borderColor = "#10b981";
+        }
+
+        // Logger e Led de Status Baseados em Condições
+        if (tempoFaltaAgua > 0) {
+            elLogTexto.innerText = `ALERTA: FALTA DE ÁGUA NO TNQ-008! (${tempoFaltaAgua}s restantes)`;
+            elLedStatus.className = "status-alerta ativo";
+        } else if (tempoParada > 0) {
+            elLogTexto.innerText = `ALERTA: FLUXO DE RETORNO DO BRANQUEAMENTO BLOQUEADO (${tempoParada}s restantes)`;
+            elLedStatus.className = "status-alerta ativo";
+        } else if (nivelTanque > 95.0) {
+            elLogTexto.innerText = "ALERTA: NÍVEL CRÍTICO (ACIMA DE 95%) NO RESERVATÓRIO TNQ-008!";
+            elLedStatus.className = "status-alerta ativo";
+        } else if (nivelTanque < 10.0) {
+            elLogTexto.innerText = "INTERTRAVAMENTO: NÍVEL CRITICAMENTE BAIXO (<10%) - SUCÇÃO BLOQUEADA!";
+            elLedStatus.className = "status-alerta ativo";
+        } else if (nivelTanque < 50.0) {
+            elLogTexto.innerText = "ALERTA: NÍVEL BAIXO (ABAIXO DE 50%) NO RESERVATÓRIO TNQ-008!";
+            elLedStatus.className = "status-alerta ativo";
+        } else {
+            elLogTexto.innerText = "SISTEMA EM OPERAÇÃO NORMAL - SIMULADOR ESTÁVEL";
+            elLedStatus.className = "status-alerta";
+        }
+    }
+
+    // FUNÇÕES DE DESENHO GRÁFICO (CANVAS)
+
+    function desenharTubulacao() {
+        if (!ctx) return;
+        // 1. DESENHO DA ESTRUTURA FIXA DOS TUBOS (Fundo Cinza Escuro)
+        ctx.strokeStyle = "#2e3b52";
+        ctx.lineWidth = 12;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round"; 
+
+        // Alimentação comum das bombas de sucção vertical
+        ctx.beginPath();
+        ctx.moveTo(180, 430);
+        ctx.lineTo(320, 430);
+        ctx.lineTo(320, 600);
+        ctx.stroke();
+
+        // Linha BBA-010
+        ctx.beginPath();
+        ctx.moveTo(180, 600);
+        ctx.lineTo(320, 600);
+        ctx.stroke();
+
+        // Linha comum vertical até a saída inferior do tanque TNQ-008
+        ctx.beginPath();
+        ctx.moveTo(320, 600);
+        ctx.lineTo(480, 600);
+        ctx.lineTo(480, 380);
+        ctx.stroke();
+
+        // Linha superior de dreno/escape HC-030
+        ctx.beginPath();
+        ctx.moveTo(560, 180);
+        ctx.lineTo(560, 90);
+        ctx.lineTo(900, 90);
+        ctx.stroke();
+
+        // Tubulação de Entrada vinda do Branqueamento (Conecta ao tanque em X=670)
+        ctx.beginPath();
+        ctx.moveTo(670, 250);   
+        ctx.lineTo(900, 250);   
+        ctx.stroke();
+
+
+        // 2. DESENHO DO FLUXO ANIMADO INTERNO (Tracejado azulado indicando direção correta)
+        ctx.lineWidth = 4;           
+        ctx.strokeStyle = "#00d2ff"; 
+        ctx.setLineDash([12, 12]);   
+
+        // Linha comum vertical de retirada inferior (CORRIGIDO: Fluxo saindo do TNQ-008 para as bombas)
+        if ((bomba006 || bomba010) && nivelTanque >= 10.0) {
+            ctx.lineDashOffset = -fluxo; // CORRIGIDO: Fluxo negativo segue o sentido correto de A -> B (Tanque para as bombas)
+            ctx.beginPath();
+            ctx.moveTo(480, 380);
+            ctx.lineTo(480, 600);
+            ctx.lineTo(320, 600);
+            ctx.stroke();
+        }
+
+        // Fluxo da BBA-006 (CORRIGIDO: Sentido do TNQ para a sucção da bomba)
+        if (bomba006 && nivelTanque >= 10.0) {
+            ctx.lineDashOffset = -fluxo; // CORRIGIDO: Sentido de A -> B (Da junção para a sucção da bomba)
+            ctx.beginPath();
+            ctx.moveTo(320, 600);
+            ctx.lineTo(320, 430);
+            ctx.lineTo(180, 430);
+            ctx.stroke();
+        }
+
+        // Fluxo da BBA-010 (CORRIGIDO: Sentido do TNQ para a sucção da bomba)
+        if (bomba010 && nivelTanque >= 10.0) {
+            ctx.lineDashOffset = -fluxo; // CORRIGIDO: Sentido de A -> B (Da junção para a sucção da bomba)
+            ctx.beginPath();
+            ctx.moveTo(320, 600);
+            ctx.lineTo(180, 600);
+            ctx.stroke();
+        }
+
+        // Fluxo da Linha Superior de Escape HC-030 (Esquerda para a Direita)
+        if (aberturaHC030 > 0 && nivelTanque > 85) {
+            ctx.lineDashOffset = -fluxo; // CORRIGIDO: Sentido de A -> B (Do tanque para o dreno)
+            ctx.beginPath();
+            ctx.moveTo(560, 180);
+            ctx.lineTo(560, 90);
+            ctx.lineTo(900, 90);
+            ctx.stroke();
+        }
+
+        // Fluxo vindo do Branqueamento (Direita para a Esquerda) - para quando o Branqueamento é estancado!
+        if (tempoParada === 0) {
+            ctx.lineDashOffset = -fluxo; 
+            ctx.beginPath();
+            ctx.moveTo(900, 250);  
+            if (aberturaLC030A > 0) {
+                ctx.lineTo(670, 250); 
+            } else {
+                ctx.lineTo(760, 250); 
+            }
+            ctx.stroke();
+        }
+
+        ctx.setLineDash([]); 
+    }
+
+    // Método de desenho do reservatório
+    function desenharTanque() {
+        if (!ctx) return;
+        // Corpo Estrutural do Tanque TNQ-008
+        ctx.fillStyle = "#1e293b";
+        ctx.strokeStyle = "#3b4f74";
+        ctx.lineWidth = 4;
+
+        // Desenhar Sombra do tanque
+        ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+        ctx.shadowBlur = 15;
+        
+        ctx.beginPath();
+        ctx.rect(450, 180, 220, 300);
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.shadowBlur = 0; // Reset da sombra
+
+        // Indicador Físico de Nível (Preenchimento proporcional líquido interno)
+        let limiteInferiorY = 465;
+        let alturaTotalDisponivel = 265;
+        let yFluido = limiteInferiorY - (alturaTotalDisponivel * (nivelTanque / 100));
+
+        // Gradiente do líquido baseado na Temperatura
+        let gradienteFluido = ctx.createLinearGradient(462, 195, 462, 465);
+        if (temperaturaTanque > 80.0) {
+            gradienteFluido.addColorStop(0, "#ef4444"); 
+            gradienteFluido.addColorStop(1, "#f97316");
+        } else {
+            gradienteFluido.addColorStop(0, "#0284c7"); 
+            gradienteFluido.addColorStop(1, "#38bdf8");
+        }
+
+        // Canaleta de Vidro de Nível (Lateral Esquerda do Tanque)
+        ctx.fillStyle = "#020617";
+        ctx.fillRect(462, 195, 18, 270);
+        ctx.strokeStyle = "#475569";
+        ctx.strokeRect(462, 195, 18, 270);
+
+        // Preenchimento de Água no Canal de Vidro
+        ctx.fillStyle = gradienteFluido;
+        ctx.fillRect(462, yFluido, 18, limiteInferiorY - yFluido);
+
+        // Textos principais internos do Tanque TNQ-008
+        ctx.fillStyle = "white";
+        ctx.font = "bold 24px 'Segoe UI', Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("TNQ-008", 560, 260);
+
+        // Nome do equipamento
+        ctx.font = "500 15px 'Segoe UI', Arial, sans-serif";
+        ctx.fillStyle = "#94a3b8";
+        ctx.fillText("Tanque de Água", 560, 295);
+        ctx.fillText("Aquecida", 560, 318);
+
+        // EXIBIÇÃO APENAS DO VALOR DE NÍVEL LOCAL DO RESERVATÓRIO
+        ctx.font = "bold 28px 'Segoe UI', Arial, sans-serif";
+        if (nivelTanque < 50.0 || nivelTanque > 95.0) {
+            ctx.fillStyle = "#ff5555";
+        } else {
+            ctx.fillStyle = "#00ff88";
+        }
+        ctx.fillText(nivelTanque.toFixed(1) + " %", 560, 375);
+    }
+
+    function desenharBomba(x, y, ligada, nome) {
+        if (!ctx) return;
+        ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+        ctx.shadowBlur = 10;
+
+        ctx.fillStyle = ligada ? "#10b981" : "#ef4444";
+        ctx.beginPath();
+        ctx.arc(x, y, 28, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.shadowBlur = 0; 
+
+        ctx.strokeStyle = "#f8fafc";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.fillStyle = "#1e293b";
+        ctx.beginPath();
+        ctx.arc(x, y, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        if (ligada) {
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            let anguloBomba = (fluxo * 0.05) % (Math.PI * 2);
+            ctx.moveTo(x + Math.cos(anguloBomba) * 10, y + Math.sin(anguloBomba) * 10);
+            ctx.lineTo(x + Math.cos(anguloBomba) * 25, y + Math.sin(anguloBomba) * 25);
+            ctx.moveTo(x + Math.cos(anguloBomba + Math.PI) * 10, y + Math.sin(anguloBomba + Math.PI) * 10);
+            ctx.lineTo(x + Math.cos(anguloBomba + Math.PI) * 25, y + Math.sin(anguloBomba + Math.PI) * 25);
+            ctx.stroke();
+        }
+
+        ctx.fillStyle = "white";
+        ctx.font = "bold 13px 'Segoe UI', Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(nome, x, y + 48);
+    }
+
+    function desenharValvula(x, y, nome, aberturaPercent) {
+        if (!ctx) return;
+        ctx.fillStyle = (aberturaPercent > 0) ? "#10b981" : "#ef4444";
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2.5;
+
+        ctx.beginPath();
+        ctx.moveTo(x - 14, y - 11);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x - 14, y + 11);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x + 14, y - 11);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + 14, y + 11);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y - 14);
+        ctx.stroke();
+
+        ctx.fillStyle = "#64748b";
+        ctx.fillRect(x - 10, y - 20, 20, 6);
+        ctx.strokeRect(x - 10, y - 20, 20, 6);
+
+        ctx.fillStyle = "white";
+        ctx.font = "bold 13px 'Segoe UI', Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(nome, x, y - 28);
+
+        ctx.fillStyle = (aberturaPercent > 0) ? "#00ff88" : "#ff5555";
+        ctx.font = "bold 13.5px 'Segoe UI', Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(aberturaPercent.toFixed(1) + " %", x, y + 24);
+    }
+
+    // MAIN LOOP DE DESENHO (Loop de Renderização Ativa)
+    function desenhar() {
+        if (!ctx || !canvas) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        fluxo += 1.5;
+
+        desenharTubulacao();
+        desenharTanque();
+        
+        desenharBomba(150, 430, bomba006, "BBA-006");
+        desenharBomba(150, 600, bomba010, "BBA-010");
+        
+        desenharValvula(590, 90, "HC-030", aberturaHC030);
+        desenharValvula(760, 250, "LC-030A", aberturaLC030A);
+        
+        let branqueamentoAtivo = (tempoParada === 0);
+        desenharBomba(930, 250, branqueamentoAtivo, "314-BBA-630A/B");
+
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "bold 15px 'Segoe UI', Arial, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText("Make-up Água Fresca (Externa)", 650, 75);
+
+        requestAnimationFrame(desenhar);
+    }
+
+    // LISTENER DE EVENTO DE CLIQUE DO USUÁRIO NO CANVAS (Controle Manual Direto)
+    function tratarCliqueCanvas(e) {
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        // Detecção de clique na Bomba BBA-006
+        if (Math.hypot(x - 150, y - 430) < 35) {
+            if (nivelTanque < 10.0) {
+                showNotification("BLOQUEIO: Nível do tanque abaixo de 10.0%. Impossível ligar BBA-006!", true);
+            } else {
+                bomba006 = !bomba006;
+                showNotification(`Bomba BBA-006 alterada para: ${bomba006 ? 'LIGADA' : 'DESLIGADA'}`);
+            }
+        }
+
+        // Detecção de clique na Bomba BBA-010
+        if (Math.hypot(x - 150, y - 600) < 35) {
+            if (nivelTanque < 10.0) {
+                showNotification("BLOQUEIO: Nível do tanque abaixo de 10.0%. Impossível ligar BBA-010!", true);
+            } else {
+                bomba010 = !bomba010;
+                showNotification(`Bomba BBA-010 alterada para: ${bomba010 ? 'LIGADA' : 'DESLIGADA'}`);
+            }
+        }
+
+        // Detecção de clique na Válvula HC-030 (Apenas esta dispara o alarme se modificado diretamente)
+        if (x > 565 && x < 615 && y > 60 && y < 110) {
+            abrirPopupHC030();
+        }
+    }
+</script>
+
+</body>
+</html>
